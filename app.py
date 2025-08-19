@@ -31,7 +31,22 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'service': 'valsports-scraper-api',
-        'version': '1.0.0'
+        'version': '1.0.0',
+        'timestamp': '2025-08-19 15:05:00'
+    })
+
+@app.route('/', methods=['GET'])
+def root():
+    """Endpoint raiz para teste"""
+    return jsonify({
+        'message': 'ValSports Scraper API',
+        'status': 'running',
+        'endpoints': {
+            'health': '/health',
+            'scrape_bet': '/api/scrape-bet',
+            'login': '/api/login',
+            'confirm_bet': '/api/confirm-bet'
+        }
     })
 
 @app.route('/api/scrape-bet', methods=['POST'])
@@ -160,4 +175,11 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('DEBUG', 'False').lower() == 'true'
     
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    # Configurar para aceitar tanto HTTP quanto HTTPS
+    app.run(
+        host='0.0.0.0', 
+        port=port, 
+        debug=debug,
+        threaded=True,
+        use_reloader=False
+    )
