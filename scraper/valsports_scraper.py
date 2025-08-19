@@ -251,12 +251,19 @@ class ValSportsScraper:
                     bet_data['league'] = "América do Sul: Copa Libertadores"
                 elif 'Copa Sudamericana' in ticket_full_text:
                     bet_data['league'] = "América do Sul: Copa Sudamericana"
+                elif 'CONCACAF' in ticket_full_text:
+                    bet_data['league'] = "CONCACAF: Taça Centroamericana"
+                elif 'Inglaterra' in ticket_full_text:
+                    bet_data['league'] = "Inglaterra: Liga 1"
+                elif 'Costa Rica' in ticket_full_text:
+                    bet_data['league'] = "Costa Rica: Taça"
                 
                 # Extrair todos os dados usando regex mais robusto
                 all_teams = []
                 all_selections = []
                 all_datetimes = []
                 all_odds = []
+                all_leagues = []
                 
                 # Encontrar todas as datas/horas
                 datetime_matches = re.findall(r'\d{2}/\d{2}\s+\d{2}:\d{2}', ticket_full_text)
@@ -266,73 +273,67 @@ class ValSportsScraper:
                 odds_matches = re.findall(r'\b\d+\.\d+\b', ticket_full_text)
                 all_odds = list(set(odds_matches))  # Remove duplicatas
                 
-                # Encontrar todos os times usando padrões mais abrangentes
-                # Lista de times conhecidos para busca
-                known_teams = [
-                    'Vélez Sarsfield', 'Fortaleza EC', 'São Paulo', 'Atlético Nacional',
-                    'Racing Club', 'Peñarol', 'Huracán', 'Once Caldas',
-                    'Mushuc Runa', 'Independiente del Valle', 'Fluminense', 'America de Cali',
-                    'CS Uruguay de Coronado', 'Sporting San José', 'Deportivo Saprissa',
-                    'Municipal Grecia', 'Herediano', 'Santos de Guápiles',
-                    'Alajuelense', 'Cartaginés', 'Puntarenas', 'Limón'
-                ]
-                
-                # Buscar padrões de times no texto
+                # Extrair dados por seções (cada jogo)
                 lines = ticket_full_text.split('\n')
-                for i, line in enumerate(lines):
+                current_section = []
+                sections = []
+                
+                for line in lines:
                     line = line.strip()
+                    if line:
+                        current_section.append(line)
+                    elif current_section:
+                        sections.append(current_section)
+                        current_section = []
+                
+                if current_section:
+                    sections.append(current_section)
+                
+                # Processar cada seção para extrair dados dos jogos
+                for section in sections:
+                    section_text = '\n'.join(section)
                     
-                    # Verificar se a linha contém um time conhecido
-                    for team in known_teams:
-                        if team in line and i + 1 < len(lines):
-                            next_line = lines[i + 1].strip()
-                            # Verificar se a próxima linha contém outro time
-                            for other_team in known_teams:
-                                if other_team in next_line and other_team != team:
-                                    team_pair = f"{team} x {other_team}"
-                                    if team_pair not in all_teams:
-                                        all_teams.append(team_pair)
-                                    break
-                
-                # Se não encontrou times específicos, usar padrão genérico
-                if not all_teams:
-                    # Buscar padrões como "Time1 x Time2" ou "Time1\nTime2"
-                    team_patterns = [
-                        r'([A-Za-z\s]+)\s+x\s+([A-Za-z\s]+)',
-                        r'([A-Za-z\s]+)\n([A-Za-z\s]+)',
-                        r'([A-Za-z\s]+)\s+vs\s+([A-Za-z\s]+)'
-                    ]
+                    # Extrair liga da seção
+                    league_match = re.search(r'([A-Za-z\s]+):\s*([A-Za-z\s]+)', section_text)
+                    if league_match:
+                        league = f"{league_match.group(1)}: {league_match.group(2)}"
+                        if league not in all_leagues:
+                            all_leagues.append(league)
                     
-                    for pattern in team_patterns:
-                        matches = re.findall(pattern, ticket_full_text)
-                        for match in matches:
-                            if len(match) >= 2:
-                                team_pair = f"{match[0].strip()} x {match[1].strip()}"
-                                if team_pair not in all_teams and len(team_pair) > 5:
-                                    all_teams.append(team_pair)
-                
-                # Encontrar todas as seleções
-                selection_patterns = [
-                    r'Vencedor:\s*([A-Za-z\s]+)',
-                    r'Empate',
-                    r'Mais de \d+\.\d+ gols',
-                    r'Menos de \d+\.\d+ gols',
-                    r'Ambas marcam',
-                    r'Uma equipe não marca'
-                ]
-                
-                for pattern in selection_patterns:
-                    matches = re.findall(pattern, ticket_full_text, re.IGNORECASE)
-                    for match in matches:
-                        if pattern == r'Empate':
-                            selection = "Empate"
-                        elif pattern.startswith(r'Vencedor:'):
-                            selection = f"Vencedor: {match}"
-                        else:
-                            selection = match
-                        
+                    # Extrair data/hora
+                    datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', section_text)
+                    if datetime_match:
+                        datetime_str = datetime_match.group(0)
+                        if datetime_str not in all_datetimes:
+                            all_datetimes.append(datetime_str)
+                    
+                    # Extrair times (procurar por duas linhas consecutivas com nomes de times)
+                    team_lines = []
+                    for line in section:
+                        if re.match(r'^[A-Za-z\s]+$', line) and len(line.strip()) > 2:
+                            team_lines.append(line.strip())
+                    
+                    if len(team_lines) >= 2:
+                        team_pair = f"{team_lines[0]} x {team_lines[1]}"
+                        if team_pair not in all_teams:
+                            all_teams.append(team_pair)
+                    
+                    # Extrair seleção
+                    selection_match = re.search(r'Vencedor:\s*([A-Za-z\s]+)', section_text)
+                    if selection_match:
+                        selection = f"Vencedor: {selection_match.group(1)}"
                         if selection not in all_selections:
                             all_selections.append(selection)
+                    elif 'Empate' in section_text:
+                        if 'Empate' not in all_selections:
+                            all_selections.append('Empate')
+                    
+                    # Extrair odds
+                    odds_match = re.search(r'\b\d+\.\d+\b', section_text)
+                    if odds_match:
+                        odds = odds_match.group(0)
+                        if odds not in all_odds:
+                            all_odds.append(odds)
                 
                 # Buscar seleções específicas conhecidas
                 known_selections = [
@@ -343,13 +344,16 @@ class ValSportsScraper:
                     'Vencedor: Municipal Grecia', 'Vencedor: Herediano',
                     'Vencedor: Santos de Guápiles', 'Vencedor: Alajuelense',
                     'Vencedor: Cartaginés', 'Vencedor: Puntarenas', 'Vencedor: Limón',
-                    'Empate'
+                    'Vencedor: CD Águila', 'Vencedor: CD Olimpia', 'Vencedor: Plaza Amador',
+                    'Vencedor: Manágua FC', 'Vencedor: Port Vale', 'Vencedor: Stevenage',
+                    'Vencedor: Rotherham', 'Vencedor: Burton Albion', 'Empate'
                 ]
                 
                 for selection in known_selections:
                     if selection in ticket_full_text and selection not in all_selections:
                         all_selections.append(selection)
                 
+                logger.info(f"Ligas encontradas: {all_leagues}")
                 logger.info(f"Times encontrados: {all_teams}")
                 logger.info(f"Seleções encontradas: {all_selections}")
                 logger.info(f"Datas/horas encontradas: {all_datetimes}")
@@ -372,6 +376,7 @@ class ValSportsScraper:
                 
                 # Adicionar informações de todos os jogos (apenas dados válidos)
                 bet_data['all_games'] = {
+                    'leagues': all_leagues,
                     'teams': all_teams,
                     'selections': all_selections,
                     'datetimes': all_datetimes,
