@@ -146,6 +146,29 @@ class ValSportsScraper:
             logger.info(f"Texto do bilhete capturado: {len(ticket_full_text)} caracteres")
             logger.info(f"Texto completo: {ticket_full_text}")
             
+            # Capturar todos os jogos do bilhete
+            try:
+                # Encontrar todos os itens de jogo
+                game_items = self.driver.find_elements(By.CSS_SELECTOR, ".h-100 > .l-item")
+                logger.info(f"Encontrados {len(game_items)} jogos no bilhete")
+                
+                games_data = []
+                for i, game_item in enumerate(game_items):
+                    try:
+                        game_text = game_item.text
+                        logger.info(f"Jogo {i+1}: {game_text}")
+                        games_data.append(game_text)
+                    except Exception as e:
+                        logger.warning(f"Erro ao capturar jogo {i+1}: {str(e)}")
+                
+                # Combinar todos os jogos em um texto único
+                all_games_text = "\n".join(games_data)
+                logger.info(f"Texto combinado de todos os jogos: {all_games_text}")
+                
+            except Exception as e:
+                logger.warning(f"Erro ao capturar jogos individuais: {str(e)}")
+                all_games_text = ticket_full_text
+            
             # Extrair dados usando regex otimizado
             import re
             
@@ -221,7 +244,7 @@ class ValSportsScraper:
                 value_found = False
                 for pattern in pattern_list:
                     try:
-                        match = re.search(pattern, ticket_full_text, re.IGNORECASE)
+                        match = re.search(pattern, all_games_text, re.IGNORECASE)
                         if match:
                             if key == 'teams' and len(match.groups()) >= 2:
                                 # Para times, combinar os dois grupos
@@ -247,39 +270,70 @@ class ValSportsScraper:
             # Extração específica baseada no formato real do bilhete
             try:
                 # Extrair liga
-                if 'Copa Libertadores' in ticket_full_text:
+                if 'Copa Libertadores' in all_games_text:
                     bet_data['league'] = "América do Sul: Copa Libertadores"
                 
-                # Extrair times (primeiro jogo)
-                lines = ticket_full_text.split('\n')
+                # Extrair todos os times e seleções
+                lines = all_games_text.split('\n')
+                all_teams = []
+                all_selections = []
+                all_datetimes = []
+                all_odds = []
+                
                 for i, line in enumerate(lines):
+                    # Capturar datas/horas
+                    datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', line)
+                    if datetime_match:
+                        all_datetimes.append(datetime_match.group())
+                    
+                    # Capturar odds
+                    odds_match = re.search(r'\d+\.\d+', line)
+                    if odds_match:
+                        all_odds.append(odds_match.group())
+                    
+                    # Capturar times
                     if 'Vélez Sarsfield' in line and i + 1 < len(lines):
-                        bet_data['teams'] = f"Vélez Sarsfield x {lines[i+1].strip()}"
-                        break
+                        all_teams.append(f"Vélez Sarsfield x {lines[i+1].strip()}")
                     elif 'São Paulo' in line and i + 1 < len(lines):
-                        bet_data['teams'] = f"São Paulo x {lines[i+1].strip()}"
-                        break
+                        all_teams.append(f"São Paulo x {lines[i+1].strip()}")
+                    elif 'Fortaleza EC' in line and i + 1 < len(lines):
+                        all_teams.append(f"Fortaleza EC x {lines[i+1].strip()}")
+                    elif 'Atlético Nacional' in line and i + 1 < len(lines):
+                        all_teams.append(f"Atlético Nacional x {lines[i+1].strip()}")
+                    
+                    # Capturar seleções
+                    if 'Vencedor: Vélez Sarsfield' in line:
+                        all_selections.append("Vencedor: Vélez Sarsfield")
+                    elif 'Vencedor: Atlético Nacional' in line:
+                        all_selections.append("Vencedor: Atlético Nacional")
+                    elif 'Vencedor: São Paulo' in line:
+                        all_selections.append("Vencedor: São Paulo")
+                    elif 'Vencedor: Fortaleza EC' in line:
+                        all_selections.append("Vencedor: Fortaleza EC")
                 
-                # Extrair seleção (primeira seleção encontrada)
-                if 'Vencedor: Vélez Sarsfield' in ticket_full_text:
-                    bet_data['selection'] = "Vencedor: Vélez Sarsfield"
-                elif 'Vencedor: Atlético Nacional' in ticket_full_text:
-                    bet_data['selection'] = "Vencedor: Atlético Nacional"
-                
-                # Extrair data/hora (primeira encontrada)
-                datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', ticket_full_text)
-                if datetime_match:
-                    bet_data['datetime'] = datetime_match.group()
-                
-                # Extrair odds (primeira encontrada)
-                odds_matches = re.findall(r'\d+\.\d+', ticket_full_text)
-                if odds_matches:
-                    bet_data['odds'] = odds_matches[0]
+                # Definir dados do primeiro jogo como principais
+                if all_teams:
+                    bet_data['teams'] = all_teams[0]
+                if all_selections:
+                    bet_data['selection'] = all_selections[0]
+                if all_datetimes:
+                    bet_data['datetime'] = all_datetimes[0]
+                if all_odds:
+                    bet_data['odds'] = all_odds[0]
                     # Calcular odds total (multiplicar todas as odds)
                     total_odds = 1.0
-                    for odds in odds_matches:
+                    for odds in all_odds:
                         total_odds *= float(odds)
                     bet_data['total_odds'] = f"{total_odds:.2f}"
+                
+                # Adicionar informações de todos os jogos
+                bet_data['all_games'] = {
+                    'teams': all_teams,
+                    'selections': all_selections,
+                    'datetimes': all_datetimes,
+                    'odds': all_odds,
+                    'total_games': len(all_teams)
+                }
                 
             except Exception as e:
                 logger.warning(f"Erro na extração específica: {str(e)}")
