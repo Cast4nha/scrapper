@@ -146,29 +146,6 @@ class ValSportsScraper:
             logger.info(f"Texto do bilhete capturado: {len(ticket_full_text)} caracteres")
             logger.info(f"Texto completo: {ticket_full_text}")
             
-            # Capturar todos os jogos do bilhete
-            try:
-                # Encontrar todos os itens de jogo
-                game_items = self.driver.find_elements(By.CSS_SELECTOR, ".h-100 > .l-item")
-                logger.info(f"Encontrados {len(game_items)} jogos no bilhete")
-                
-                games_data = []
-                for i, game_item in enumerate(game_items):
-                    try:
-                        game_text = game_item.text
-                        logger.info(f"Jogo {i+1}: {game_text}")
-                        games_data.append(game_text)
-                    except Exception as e:
-                        logger.warning(f"Erro ao capturar jogo {i+1}: {str(e)}")
-                
-                # Combinar todos os jogos em um texto único
-                all_games_text = "\n".join(games_data)
-                logger.info(f"Texto combinado de todos os jogos: {all_games_text}")
-                
-            except Exception as e:
-                logger.warning(f"Erro ao capturar jogos individuais: {str(e)}")
-                all_games_text = ticket_full_text
-            
             # Extrair dados usando regex otimizado
             import re
             
@@ -244,7 +221,7 @@ class ValSportsScraper:
                 value_found = False
                 for pattern in pattern_list:
                     try:
-                        match = re.search(pattern, all_games_text, re.IGNORECASE)
+                        match = re.search(pattern, ticket_full_text, re.IGNORECASE)
                         if match:
                             if key == 'teams' and len(match.groups()) >= 2:
                                 # Para times, combinar os dois grupos
@@ -270,57 +247,50 @@ class ValSportsScraper:
             # Extração específica baseada no formato real do bilhete
             try:
                 # Extrair liga
-                if 'Copa Libertadores' in all_games_text:
+                if 'Copa Libertadores' in ticket_full_text:
                     bet_data['league'] = "América do Sul: Copa Libertadores"
                 
-                # Extrair todos os times e seleções de forma mais precisa
-                lines = all_games_text.split('\n')
+                # Extrair todos os dados usando regex mais robusto
                 all_teams = []
                 all_selections = []
                 all_datetimes = []
                 all_odds = []
                 
-                i = 0
-                while i < len(lines):
-                    line = lines[i].strip()
-                    
-                    # Capturar datas/horas
-                    datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', line)
-                    if datetime_match:
-                        all_datetimes.append(datetime_match.group())
-                    
-                    # Capturar odds (números decimais)
-                    odds_match = re.search(r'^\d+\.\d+$', line)
-                    if odds_match:
-                        all_odds.append(odds_match.group())
-                    
-                    # Capturar times (procura por padrões específicos)
-                    if 'Vélez Sarsfield' in line and i + 1 < len(lines):
-                        next_line = lines[i + 1].strip()
-                        if 'Fortaleza EC' in next_line:
-                            all_teams.append(f"Vélez Sarsfield x Fortaleza EC")
-                    elif 'São Paulo' in line and i + 1 < len(lines):
-                        next_line = lines[i + 1].strip()
-                        if 'Atlético Nacional' in next_line:
-                            all_teams.append(f"São Paulo x Atlético Nacional")
-                    
-                    # Capturar seleções (procura por "Vencedor:")
-                    if 'Vencedor: Vélez Sarsfield' in line:
-                        all_selections.append("Vencedor: Vélez Sarsfield")
-                    elif 'Vencedor: Atlético Nacional' in line:
-                        all_selections.append("Vencedor: Atlético Nacional")
-                    elif 'Vencedor: São Paulo' in line:
-                        all_selections.append("Vencedor: São Paulo")
-                    elif 'Vencedor: Fortaleza EC' in line:
-                        all_selections.append("Vencedor: Fortaleza EC")
-                    
-                    i += 1
+                # Encontrar todas as datas/horas
+                datetime_matches = re.findall(r'\d{2}/\d{2}\s+\d{2}:\d{2}', ticket_full_text)
+                all_datetimes = list(set(datetime_matches))  # Remove duplicatas
                 
-                # Limpar arrays removendo duplicatas
-                all_teams = list(dict.fromkeys(all_teams))  # Remove duplicatas mantendo ordem
-                all_selections = list(dict.fromkeys(all_selections))
-                all_datetimes = list(dict.fromkeys(all_datetimes))
-                all_odds = list(dict.fromkeys(all_odds))
+                # Encontrar todas as odds (números decimais)
+                odds_matches = re.findall(r'\b\d+\.\d+\b', ticket_full_text)
+                all_odds = list(set(odds_matches))  # Remove duplicatas
+                
+                # Encontrar todos os times usando padrões específicos
+                # Padrão 1: Vélez Sarsfield seguido de Fortaleza EC
+                velez_pattern = r'Vélez\s+Sarsfield[^\n]*\n[^\n]*Fortaleza\s+EC'
+                if re.search(velez_pattern, ticket_full_text):
+                    all_teams.append("Vélez Sarsfield x Fortaleza EC")
+                
+                # Padrão 2: São Paulo seguido de Atlético Nacional
+                sao_paulo_pattern = r'São\s+Paulo[^\n]*\n[^\n]*Atlético\s+Nacional'
+                if re.search(sao_paulo_pattern, ticket_full_text):
+                    all_teams.append("São Paulo x Atlético Nacional")
+                
+                # Encontrar todas as seleções
+                # Vencedor: Vélez Sarsfield
+                if 'Vencedor: Vélez Sarsfield' in ticket_full_text:
+                    all_selections.append("Vencedor: Vélez Sarsfield")
+                
+                # Vencedor: Atlético Nacional
+                if 'Vencedor: Atlético Nacional' in ticket_full_text:
+                    all_selections.append("Vencedor: Atlético Nacional")
+                
+                # Vencedor: São Paulo
+                if 'Vencedor: São Paulo' in ticket_full_text:
+                    all_selections.append("Vencedor: São Paulo")
+                
+                # Vencedor: Fortaleza EC
+                if 'Vencedor: Fortaleza EC' in ticket_full_text:
+                    all_selections.append("Vencedor: Fortaleza EC")
                 
                 logger.info(f"Times encontrados: {all_teams}")
                 logger.info(f"Seleções encontradas: {all_selections}")
