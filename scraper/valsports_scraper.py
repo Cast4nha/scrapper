@@ -249,6 +249,8 @@ class ValSportsScraper:
                 # Extrair liga
                 if 'Copa Libertadores' in ticket_full_text:
                     bet_data['league'] = "América do Sul: Copa Libertadores"
+                elif 'Copa Sudamericana' in ticket_full_text:
+                    bet_data['league'] = "América do Sul: Copa Sudamericana"
                 
                 # Extrair todos os dados usando regex mais robusto
                 all_teams = []
@@ -264,33 +266,81 @@ class ValSportsScraper:
                 odds_matches = re.findall(r'\b\d+\.\d+\b', ticket_full_text)
                 all_odds = list(set(odds_matches))  # Remove duplicatas
                 
-                # Encontrar todos os times usando padrões específicos
-                # Padrão 1: Vélez Sarsfield seguido de Fortaleza EC
-                velez_pattern = r'Vélez\s+Sarsfield[^\n]*\n[^\n]*Fortaleza\s+EC'
-                if re.search(velez_pattern, ticket_full_text):
-                    all_teams.append("Vélez Sarsfield x Fortaleza EC")
+                # Encontrar todos os times usando padrões mais abrangentes
+                # Lista de times conhecidos para busca
+                known_teams = [
+                    'Vélez Sarsfield', 'Fortaleza EC', 'São Paulo', 'Atlético Nacional',
+                    'Racing Club', 'Peñarol', 'Huracán', 'Once Caldas',
+                    'Mushuc Runa', 'Independiente del Valle', 'Fluminense', 'America de Cali'
+                ]
                 
-                # Padrão 2: São Paulo seguido de Atlético Nacional
-                sao_paulo_pattern = r'São\s+Paulo[^\n]*\n[^\n]*Atlético\s+Nacional'
-                if re.search(sao_paulo_pattern, ticket_full_text):
-                    all_teams.append("São Paulo x Atlético Nacional")
+                # Buscar padrões de times no texto
+                lines = ticket_full_text.split('\n')
+                for i, line in enumerate(lines):
+                    line = line.strip()
+                    
+                    # Verificar se a linha contém um time conhecido
+                    for team in known_teams:
+                        if team in line and i + 1 < len(lines):
+                            next_line = lines[i + 1].strip()
+                            # Verificar se a próxima linha contém outro time
+                            for other_team in known_teams:
+                                if other_team in next_line and other_team != team:
+                                    team_pair = f"{team} x {other_team}"
+                                    if team_pair not in all_teams:
+                                        all_teams.append(team_pair)
+                                    break
+                
+                # Se não encontrou times específicos, usar padrão genérico
+                if not all_teams:
+                    # Buscar padrões como "Time1 x Time2" ou "Time1\nTime2"
+                    team_patterns = [
+                        r'([A-Za-z\s]+)\s+x\s+([A-Za-z\s]+)',
+                        r'([A-Za-z\s]+)\n([A-Za-z\s]+)',
+                        r'([A-Za-z\s]+)\s+vs\s+([A-Za-z\s]+)'
+                    ]
+                    
+                    for pattern in team_patterns:
+                        matches = re.findall(pattern, ticket_full_text)
+                        for match in matches:
+                            if len(match) >= 2:
+                                team_pair = f"{match[0].strip()} x {match[1].strip()}"
+                                if team_pair not in all_teams and len(team_pair) > 5:
+                                    all_teams.append(team_pair)
                 
                 # Encontrar todas as seleções
-                # Vencedor: Vélez Sarsfield
-                if 'Vencedor: Vélez Sarsfield' in ticket_full_text:
-                    all_selections.append("Vencedor: Vélez Sarsfield")
+                selection_patterns = [
+                    r'Vencedor:\s*([A-Za-z\s]+)',
+                    r'Empate',
+                    r'Mais de \d+\.\d+ gols',
+                    r'Menos de \d+\.\d+ gols',
+                    r'Ambas marcam',
+                    r'Uma equipe não marca'
+                ]
                 
-                # Vencedor: Atlético Nacional
-                if 'Vencedor: Atlético Nacional' in ticket_full_text:
-                    all_selections.append("Vencedor: Atlético Nacional")
+                for pattern in selection_patterns:
+                    matches = re.findall(pattern, ticket_full_text, re.IGNORECASE)
+                    for match in matches:
+                        if pattern == r'Empate':
+                            selection = "Empate"
+                        elif pattern.startswith(r'Vencedor:'):
+                            selection = f"Vencedor: {match}"
+                        else:
+                            selection = match
+                        
+                        if selection not in all_selections:
+                            all_selections.append(selection)
                 
-                # Vencedor: São Paulo
-                if 'Vencedor: São Paulo' in ticket_full_text:
-                    all_selections.append("Vencedor: São Paulo")
+                # Buscar seleções específicas conhecidas
+                known_selections = [
+                    'Vencedor: Vélez Sarsfield', 'Vencedor: Atlético Nacional',
+                    'Vencedor: Peñarol', 'Vencedor: Once Caldas',
+                    'Vencedor: America de Cali', 'Empate'
+                ]
                 
-                # Vencedor: Fortaleza EC
-                if 'Vencedor: Fortaleza EC' in ticket_full_text:
-                    all_selections.append("Vencedor: Fortaleza EC")
+                for selection in known_selections:
+                    if selection in ticket_full_text and selection not in all_selections:
+                        all_selections.append(selection)
                 
                 logger.info(f"Times encontrados: {all_teams}")
                 logger.info(f"Seleções encontradas: {all_selections}")
