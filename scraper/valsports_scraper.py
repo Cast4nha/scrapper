@@ -118,7 +118,16 @@ class ValSportsScraper:
     def scrape_bet_ticket(self, bet_code):
         """Captura dados de um bilhete específico com otimizações"""
         try:
-            logger.info(f"Capturando dados do bilhete: {bet_code}")
+            logger.info(f"🚀 INICIANDO EXTRAÇÃO DO BILHETE: {bet_code}")
+            logger.info(f"⏰ Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            logger.info(f"🌐 URL Base: {self.base_url}")
+            
+            # Criar diretório para logs se não existir
+            import os
+            if not os.path.exists('logs'):
+                os.makedirs('logs')
+            if not os.path.exists('downloads'):
+                os.makedirs('downloads')
             
             # Se não estiver logado, fazer login primeiro
             if not self.is_logged_in:
@@ -130,21 +139,70 @@ class ValSportsScraper:
             
             # 1. open on https://www.valsports.net/prebet/{bet_code}
             bet_url = f"{self.base_url}/prebet/{bet_code}"
+            logger.info(f"🌐 Navegando para: {bet_url}")
             self.driver.get(bet_url)
             time.sleep(1)  # Reduzido de 2 para 1
             
+            # Fazer download da página completa
+            logger.info("📥 FAZENDO DOWNLOAD DA PÁGINA COMPLETA...")
+            try:
+                page_source = self.driver.page_source
+                logger.info(f"📄 Tamanho da página: {len(page_source)} caracteres")
+                
+                # Salvar HTML da página
+                html_filename = f"downloads/page_source_{bet_code}_{int(time.time())}.html"
+                with open(html_filename, 'w', encoding='utf-8') as f:
+                    f.write(page_source)
+                logger.info(f"💾 HTML salvo em: {html_filename}")
+                
+                # Salvar screenshot
+                screenshot_filename = f"downloads/screenshot_{bet_code}_{int(time.time())}.png"
+                self.driver.save_screenshot(screenshot_filename)
+                logger.info(f"📸 Screenshot salvo em: {screenshot_filename}")
+                
+                # Salvar log detalhado
+                log_filename = f"logs/extraction_log_{bet_code}_{int(time.time())}.txt"
+                with open(log_filename, 'w', encoding='utf-8') as f:
+                    f.write(f"=== LOG DE EXTRAÇÃO - BILHETE {bet_code} ===\n")
+                    f.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"URL: {bet_url}\n")
+                    f.write(f"Tamanho da página: {len(page_source)} caracteres\n")
+                    f.write(f"User Agent: {self.driver.execute_script('return navigator.userAgent')}\n")
+                    f.write(f"URL atual: {self.driver.current_url}\n")
+                    f.write(f"Título da página: {self.driver.title}\n")
+                    f.write("=" * 50 + "\n")
+                
+                logger.info(f"📝 Log detalhado salvo em: {log_filename}")
+                
+            except Exception as e:
+                logger.error(f"❌ Erro ao salvar página: {str(e)}")
+            
             # Aguardar carregamento com timeout menor
             wait = WebDriverWait(self.driver, 5)  # Reduzido de 10 para 5
+            logger.info("⏳ Aguardando carregamento da página...")
             
             # 2. click on css=.scroll-area-ticket > .p-2
+            logger.info("🔍 Procurando elemento .scroll-area-ticket > .p-2...")
             ticket_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".scroll-area-ticket > .p-2")))
+            logger.info("✅ Elemento encontrado, clicando...")
             ticket_element.click()
             time.sleep(0.5)  # Reduzido de 1 para 0.5
             
             # Capturar texto completo do bilhete
+            logger.info("📋 Capturando texto do bilhete...")
             ticket_full_text = ticket_element.text
-            logger.info(f"Texto do bilhete capturado: {len(ticket_full_text)} caracteres")
-            logger.info(f"Texto completo: {ticket_full_text}")
+            logger.info(f"📄 Texto do bilhete capturado: {len(ticket_full_text)} caracteres")
+            logger.info(f"📝 Texto completo: {ticket_full_text}")
+            
+            # Salvar texto do bilhete no log
+            try:
+                with open(log_filename, 'a', encoding='utf-8') as f:
+                    f.write(f"\n=== TEXTO DO BILHETE ===\n")
+                    f.write(ticket_full_text)
+                    f.write(f"\n=== FIM DO TEXTO ===\n")
+                logger.info(f"💾 Texto do bilhete salvo no log: {log_filename}")
+            except Exception as e:
+                logger.error(f"❌ Erro ao salvar texto do bilhete: {str(e)}")
             
             # Extrair dados usando regex otimizado
             import re
