@@ -303,10 +303,10 @@ class ValSportsScraper:
                     quantidade_match = re.search(r'(\d+)', quantidade_text)
                     if quantidade_match:
                         max_jogos = int(quantidade_match.group(1))
-                        # Limitar a 10 jogos para evitar timeout
-                        if max_jogos > 10:
-                            logger.info(f"Bilhete com {max_jogos} jogos, limitando a 10 para evitar timeout")
-                            max_jogos = 10
+                        # Limitar a 5 jogos para evitar timeout em bilhetes grandes
+                        if max_jogos > 5:
+                            logger.info(f"Bilhete com {max_jogos} jogos, limitando a 5 para evitar timeout")
+                            max_jogos = 5
                         else:
                             logger.info(f"Bilhete com {max_jogos} jogos")
                     else:
