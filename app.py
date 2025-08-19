@@ -13,7 +13,28 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# Configuração de CORS
 CORS(app)
+
+# Tratamento de erros global
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Tratamento global de exceções"""
+    return jsonify({
+        'error': 'Internal Server Error',
+        'message': str(e),
+        'status': 'error'
+    }), 500
+
+@app.errorhandler(404)
+def not_found(e):
+    """Tratamento de 404"""
+    return jsonify({
+        'error': 'Not Found',
+        'message': 'Endpoint não encontrado',
+        'status': 'error'
+    }), 404
 
 # Inicializar o scraper
 scraper = None
@@ -48,6 +69,21 @@ def root():
             'confirm_bet': '/api/confirm-bet'
         }
     })
+
+@app.route('/test', methods=['GET'])
+def test_endpoint():
+    """Endpoint de teste simples sem dependências"""
+    return jsonify({
+        'status': 'success',
+        'message': 'API está funcionando!',
+        'timestamp': '2025-08-19 15:07:00',
+        'service': 'valsports-scraper-api'
+    })
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    """Endpoint ping simples"""
+    return jsonify({'pong': True})
 
 @app.route('/api/scrape-bet', methods=['POST'])
 def scrape_bet():
