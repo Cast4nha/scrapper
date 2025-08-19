@@ -310,7 +310,11 @@ class ValSportsScraper:
                     # Extrair times (procurar por duas linhas consecutivas com nomes de times)
                     team_lines = []
                     for line in section:
-                        if re.match(r'^[A-Za-z\s]+$', line) and len(line.strip()) > 2:
+                        # Verificar se é uma linha que parece nome de time (apenas letras, espaços e caracteres especiais)
+                        if (re.match(r'^[A-Za-zÀ-ÿ\s]+$', line) and 
+                            len(line.strip()) > 2 and 
+                            not re.search(r'\d', line) and  # Não contém números
+                            not re.search(r'[:\-]', line)):  # Não contém : ou -
                             team_lines.append(line.strip())
                     
                     if len(team_lines) >= 2:
@@ -321,7 +325,7 @@ class ValSportsScraper:
                     # Extrair seleção
                     selection_match = re.search(r'Vencedor:\s*([A-Za-z\s]+)', section_text)
                     if selection_match:
-                        selection = f"Vencedor: {selection_match.group(1)}"
+                        selection = f"Vencedor: {selection_match.group(1).strip()}"
                         if selection not in all_selections:
                             all_selections.append(selection)
                     elif 'Empate' in section_text:
