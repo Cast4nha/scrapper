@@ -12,20 +12,20 @@ API_BASE_URL = "https://valsports.qobebrasil.com.br"
 ENDPOINT = "/api/capture-bet"
 
 def test_elm5im():
-    """Testa especificamente o bilhete ELM5IM"""
+    """Testa especificamente o bilhete TQE4X1 com 15 jogos"""
     
     url = f"{API_BASE_URL}{ENDPOINT}"
     
     # Dados da requisição
     payload = {
-        "bet_code": "ELM5IM"
+        "bet_code": "TQE4X1"
     }
     
     headers = {
         "Content-Type": "application/json"
     }
     
-    print(f"🧪 TESTE ESPECÍFICO - BILHETE ELM5IM")
+    print(f"🧪 TESTE ESPECÍFICO - BILHETE TQE4X1 (15 JOGOS)")
     print(f"📡 URL: {url}")
     print(f"📦 Payload: {json.dumps(payload, indent=2)}")
     print("-" * 50)
@@ -35,7 +35,7 @@ def test_elm5im():
         start_time = time.time()
         
         # Fazer requisição
-        response = requests.post(url, json=payload, headers=headers, timeout=60)
+        response = requests.post(url, json=payload, headers=headers, timeout=120)  # Timeout aumentado para 2 minutos
         
         end_time = time.time()
         execution_time = end_time - start_time
@@ -76,21 +76,29 @@ def test_elm5im():
                     print(f"   📅 Datas/Horas: {all_games.get('datetimes', [])}")
                     print(f"   📈 Odds: {all_games.get('odds', [])}")
                     
-                    # Análise específica do bilhete ELM5IM
+                    # Análise específica do bilhete TQE4X1
                     odds_list = all_games.get('odds', [])
-                    print(f"\n🔍 ANÁLISE DO BILHETE ELM5IM:")
+                    print(f"\n🔍 ANÁLISE DO BILHETE TQE4X1:")
                     print(f"   📈 Número de odds encontradas: {len(odds_list)}")
-                    if len(odds_list) == 5:
-                        print("   ✅ CORRETO! Encontrou 5 odds como esperado")
+                    if len(odds_list) == 15:
+                        print("   ✅ CORRETO! Encontrou 15 odds como esperado")
                     else:
-                        print(f"   ❌ ERRO! Esperado: 5 odds, Encontrado: {len(odds_list)}")
+                        print(f"   ❌ ERRO! Esperado: 15 odds, Encontrado: {len(odds_list)}")
                     
                     teams_list = all_games.get('teams', [])
                     print(f"   ⚽ Número de times encontrados: {len(teams_list)}")
-                    if len(teams_list) == 5:
-                        print("   ✅ CORRETO! Encontrou 5 confrontos como esperado")
+                    if len(teams_list) == 15:
+                        print("   ✅ CORRETO! Encontrou 15 confrontos como esperado")
                     else:
-                        print(f"   ❌ ERRO! Esperado: 5 confrontos, Encontrado: {len(teams_list)}")
+                        print(f"   ❌ ERRO! Esperado: 15 confrontos, Encontrado: {len(teams_list)}")
+                    
+                    # Mostrar alguns exemplos de jogos
+                    if teams_list:
+                        print(f"\n📋 EXEMPLOS DE JOGOS CAPTURADOS:")
+                        for i, team in enumerate(teams_list[:5]):  # Mostrar apenas os primeiros 5
+                            print(f"   {i+1}. {team}")
+                        if len(teams_list) > 5:
+                            print(f"   ... e mais {len(teams_list) - 5} jogos")
                 else:
                     print(f"\n❌ Campo 'all_games' não encontrado!")
         else:

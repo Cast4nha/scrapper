@@ -273,30 +273,42 @@ class ValSportsScraper:
                 odds_matches = re.findall(r'\b\d+\.\d+\b', ticket_full_text)
                 all_odds = list(set(odds_matches))  # Remove duplicatas
                 
-                # Extrair dados usando XPath para cada jogo individual
-                game_xpaths = [
-                    "//main/div[3]/div/div/div/div/div[1]",  # Jogo 1 - CS Uruguay de Coronado x Sporting San José
-                    "//main/div[3]/div/div/div/div/div[2]",  # Jogo 2 - CD Águila x CD Olimpia
-                    "//main/div[3]/div/div/div/div/div[3]",  # Jogo 3 - Plaza Amador x Manágua FC
-                    "//main/div[3]/div/div/div/div/div[4]",  # Jogo 4 - Port Vale x Stevenage
-                    "//main/div[3]/div/div/div/div/div[5]"   # Jogo 5 - Rotherham x Burton Albion
-                ]
+                # Extrair dados usando XPath para cada jogo individual (suporte até 20 jogos)
+                game_xpaths = []
+                for i in range(1, 21):  # Suporte para até 20 jogos
+                    game_xpaths.append(f"//main/div[3]/div/div/div/div/div[{i}]")
                 
+                # Também tentar XPath alternativo para jogos adicionais
+                for i in range(6, 21):  # Jogos 6-20 com XPath alternativo
+                    game_xpaths.append(f"//div[3]/div/div/div/div/div[{i}]")
+                
+                games_found = 0
                 for i, xpath in enumerate(game_xpaths):
                     try:
                         game_element = self.driver.find_element(By.XPATH, xpath)
                         game_text = game_element.text
-                        logger.info(f"Jogo {i+1} - XPath: {xpath}")
-                        logger.info(f"Texto do jogo {i+1}: {game_text}")
                         
-                        if game_text.strip():
+                        if game_text.strip() and len(game_text.strip()) > 10:  # Verificar se tem conteúdo válido
+                            games_found += 1
+                            logger.info(f"Jogo {games_found} - XPath: {xpath}")
+                            logger.info(f"Texto do jogo {games_found}: {game_text}")
+                            
+                            # Verificar se já processamos este jogo (evitar duplicatas)
+                            game_hash = hash(game_text.strip())
+                            if hasattr(self, '_processed_games'):
+                                if game_hash in self._processed_games:
+                                    continue
+                            else:
+                                self._processed_games = set()
+                            
+                            self._processed_games.add(game_hash)
                             # Extrair liga
                             league_match = re.search(r'([A-Za-z\s]+):\s*([A-Za-z\s]+)', game_text)
                             if league_match:
                                 league = f"{league_match.group(1)}: {league_match.group(2)}"
                                 if league not in all_leagues:
                                     all_leagues.append(league)
-                                    logger.info(f"Liga encontrada no jogo {i+1}: {league}")
+                                    logger.info(f"Liga encontrada no jogo {games_found}: {league}")
                             
                             # Extrair data/hora
                             datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', game_text)
@@ -304,7 +316,7 @@ class ValSportsScraper:
                                 datetime_str = datetime_match.group(0)
                                 if datetime_str not in all_datetimes:
                                     all_datetimes.append(datetime_str)
-                                    logger.info(f"Data/hora encontrada no jogo {i+1}: {datetime_str}")
+                                    logger.info(f"Data/hora encontrada no jogo {games_found}: {datetime_str}")
                             
                             # Extrair times (procurar por duas linhas consecutivas com nomes de times)
                             game_lines = game_text.split('\n')
@@ -326,7 +338,7 @@ class ValSportsScraper:
                                 team_pair = f"{team_lines[0]} x {team_lines[1]}"
                                 if team_pair not in all_teams:
                                     all_teams.append(team_pair)
-                                    logger.info(f"Confronto encontrado no jogo {i+1}: {team_pair}")
+                                    logger.info(f"Confronto encontrado no jogo {games_found}: {team_pair}")
                             
                             # Extrair seleção
                             selection_match = re.search(r'Vencedor:\s*([A-Za-z\s]+)', game_text)
@@ -334,17 +346,17 @@ class ValSportsScraper:
                                 selection = f"Vencedor: {selection_match.group(1).strip()}"
                                 if selection not in all_selections:
                                     all_selections.append(selection)
-                                    logger.info(f"Seleção encontrada no jogo {i+1}: {selection}")
+                                    logger.info(f"Seleção encontrada no jogo {games_found}: {selection}")
                             elif 'Empate' in game_text:
                                 if 'Empate' not in all_selections:
                                     all_selections.append('Empate')
-                                    logger.info(f"Seleção encontrada no jogo {i+1}: Empate")
+                                    logger.info(f"Seleção encontrada no jogo {games_found}: Empate")
                             
                             # Se não encontrou seleção específica, verificar se há apenas "Empate" na linha
                             if not selection_match and 'Empate' in game_text and 'Vencedor' not in game_text:
                                 if 'Empate' not in all_selections:
                                     all_selections.append('Empate')
-                                    logger.info(f"Seleção encontrada no jogo {i+1}: Empate (linha única)")
+                                    logger.info(f"Seleção encontrada no jogo {games_found}: Empate (linha única)")
                             
                             # Extrair odds
                             odds_match = re.search(r'\b\d+\.\d+\b', game_text)
@@ -352,10 +364,10 @@ class ValSportsScraper:
                                 odds = odds_match.group(0)
                                 if odds not in all_odds:
                                     all_odds.append(odds)
-                                    logger.info(f"Odds encontrada no jogo {i+1}: {odds}")
+                                    logger.info(f"Odds encontrada no jogo {games_found}: {odds}")
                     
                     except Exception as e:
-                        logger.warning(f"Erro ao extrair jogo {i+1} com XPath {xpath}: {str(e)}")
+                        logger.warning(f"Erro ao extrair jogo com XPath {xpath}: {str(e)}")
                         continue
                 
                 # Buscar seleções específicas conhecidas
