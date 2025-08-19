@@ -1,0 +1,280 @@
+{
+  "name": "ValSports Cambista Virtual",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.message }}",
+              "operation": "contains",
+              "value2": "valsports.net/prebet"
+            }
+          ]
+        }
+      },
+      "id": "filter-url",
+      "name": "Filter URL",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrair URL do bilhete da mensagem\nconst message = $input.first().json.message;\nconst urlMatch = message.match(/https:\\/\\/www\\.valsports\\.net\\/prebet\\/[a-zA-Z0-9]+/);\n\nif (urlMatch) {\n  return {\n    bet_url: urlMatch[0],\n    original_message: message,\n    chat_id: $input.first().json.chat_id\n  };\n} else {\n  throw new Error('URL do bilhete não encontrada na mensagem');\n}"
+      },
+      "id": "extract-url",
+      "name": "Extract URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5000/api/scrape-bet",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "bet_url",
+              "value": "={{ $json.bet_url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "scrape-bet",
+      "name": "Scrape Bet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatar dados do bilhete para envio\nconst betData = $input.first().json.data;\n\nconst formattedMessage = `🎯 *DADOS DO BILHETE*\n\n` +\n  `📋 *${betData.ticket_id}*\n` +\n  `🏆 *${betData.league}*\n` +\n  `⚽ *${betData.team1} vs ${betData.team2}*\n` +\n  `🎲 *${betData.selection}*\n` +\n  `📅 *${betData.datetime}*\n` +\n  `📊 *Odds: ${betData.odds}*\n` +\n  `💰 *Prêmio possível: ${betData.possible_prize}*\n\n` +\n  `💳 *Para confirmar sua aposta, envie o valor via PIX:*\n` +\n  `Chave: seu-pix-key@email.com\n` +\n  `Valor: R$ 2,00\n\n` +\n  `⏰ *Aguarde a confirmação do pagamento para prosseguir.*`;\n\nreturn {\n  message: formattedMessage,\n  chat_id: $('Extract URL').first().json.chat_id,\n  bet_url: betData.original_url,\n  bet_data: betData\n};"
+      },
+      "id": "format-message",
+      "name": "Format Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "send-whatsapp",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.message }}",
+              "operation": "contains",
+              "value2": "PIX confirmado"
+            }
+          ]
+        }
+      },
+      "id": "check-payment",
+      "name": "Check Payment",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5000/api/confirm-bet",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "bet_url",
+              "value": "={{ $('Format Message').first().json.bet_url }}"
+            },
+            {
+              "name": "stake_amount",
+              "value": "2.00"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "confirm-bet",
+      "name": "Confirm Bet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1780, 200]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Format Message').first().json.chat_id }}",
+        "text": "✅ *APOSTA CONFIRMADA COM SUCESSO!*\n\n🎯 Seu bilhete foi registrado e está ativo.\n📊 Acompanhe o resultado do jogo.\n💰 Boa sorte!\n\n📞 Para dúvidas, entre em contato.",
+        "additionalFields": {}
+      },
+      "id": "send-success",
+      "name": "Send Success",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [2000, 200]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Format Message').first().json.chat_id }}",
+        "text": "❌ *ERRO NA CONFIRMAÇÃO*\n\nHouve um problema ao confirmar sua aposta.\nPor favor, tente novamente ou entre em contato.",
+        "additionalFields": {}
+      },
+      "id": "send-error",
+      "name": "Send Error",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [2000, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter URL": {
+      "main": [
+        [
+          {
+            "node": "Extract URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Extract URL": {
+      "main": [
+        [
+          {
+            "node": "Scrape Bet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Bet": {
+      "main": [
+        [
+          {
+            "node": "Format Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Message": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Check Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Payment": {
+      "main": [
+        [
+          {
+            "node": "Confirm Bet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Confirm Bet": {
+      "main": [
+        [
+          {
+            "node": "Send Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-15T10:00:00.000Z",
+  "versionId": "1"
+}
