@@ -276,22 +276,36 @@ class ValSportsScraper:
                 # Extrair dados usando XPath para cada jogo individual (estrutura sequencial)
                 game_xpaths = []
                 
-                # Usar XPaths fixos que sabemos que funcionam
-                game_xpaths = [
-                    "//div[3]/div/div/div/div/div[1]",
-                    "//div[3]/div/div/div/div/div[2]",
-                    "//div[3]/div/div/div/div/div[3]",
-                    "//div[3]/div/div/div/div/div[4]",
-                    "//div[3]/div/div/div/div/div[5]"
+                # Buscar todos os XPaths possíveis seguindo o padrão sequencial
+                game_xpaths = []
+                
+                # Padrões de XPath baseados nos exemplos fornecidos
+                xpath_patterns = [
+                    "//main/div[3]/div/div/div/div/div[{i}]",
+                    "//div[3]/div/div/div/div/div[{i}]"
                 ]
                 
+                # Buscar até 20 jogos (cobrir bilhetes grandes)
+                for pattern in xpath_patterns:
+                    for i in range(1, 21):
+                        game_xpaths.append(pattern.format(i=i))
+                
                 games_found = 0
+                # Set para evitar duplicatas
+                processed_games = set()
+                
                 for i, xpath in enumerate(game_xpaths):
                     try:
                         game_element = self.driver.find_element(By.XPATH, xpath)
                         game_text = game_element.text
                         
-                        if game_text.strip():
+                        if game_text.strip() and len(game_text.strip()) > 10:
+                            # Verificar se já processamos este jogo (evitar duplicatas)
+                            game_hash = hash(game_text.strip())
+                            if game_hash in processed_games:
+                                continue
+                            
+                            processed_games.add(game_hash)
                             games_found += 1
                             logger.info(f"Jogo {games_found} - XPath: {xpath}")
                             logger.info(f"Texto do jogo {games_found}: {game_text}")
