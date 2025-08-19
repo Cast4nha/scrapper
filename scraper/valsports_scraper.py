@@ -276,14 +276,14 @@ class ValSportsScraper:
                 # Extrair dados usando XPath para cada jogo individual (estrutura sequencial)
                 game_xpaths = []
                 
-                # Usar abordagem robusta com CSS selectors e iteração dinâmica
-                logger.info("Iniciando captura robusta de jogos...")
+                # Usar XPaths exatos fornecidos pelo usuário
+                logger.info("Iniciando captura com XPaths exatos...")
                 
                 # Aguardar o container principal estar presente
                 wait = WebDriverWait(self.driver, 10)
                 try:
                     bilhete_container = wait.until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, ".l-item"))
+                        EC.presence_of_element_located((By.XPATH, "//main/div[3]/div/div/div"))
                     )
                     logger.info("Container do bilhete encontrado")
                 except Exception as e:
@@ -291,53 +291,86 @@ class ValSportsScraper:
                     return None
                 
                 games_found = 0
-                # Encontrar todos os jogos usando CSS selector
-                jogos = self.driver.find_elements(By.CSS_SELECTOR, ".l-item")
-                logger.info(f"Encontrados {len(jogos)} jogos no bilhete")
+                
+                # Primeiro, verificar quantos jogos existem
+                try:
+                    quantidade_element = self.driver.find_element(By.XPATH, "//div[3]/div/div/div/h5")
+                    quantidade_text = quantidade_element.text.strip()
+                    logger.info(f"Quantidade de jogos: {quantidade_text}")
+                    
+                    # Extrair número de jogos do texto (ex: "BILHETE 3" -> 3)
+                    import re
+                    quantidade_match = re.search(r'(\d+)', quantidade_text)
+                    if quantidade_match:
+                        max_jogos = int(quantidade_match.group(1))
+                        logger.info(f"Bilhete com {max_jogos} jogos")
+                    else:
+                        max_jogos = 10  # Fallback
+                        logger.info(f"Não foi possível extrair quantidade, usando fallback: {max_jogos}")
+                except Exception as e:
+                    logger.warning(f"Erro ao obter quantidade de jogos: {str(e)}")
+                    max_jogos = 10  # Fallback
                 
                 # Set para evitar duplicatas
                 processed_games = set()
                 
-                for i, jogo in enumerate(jogos):
+                # Iterar sobre os jogos usando XPaths sequenciais
+                for i in range(1, max_jogos + 1):
+                    try:
+                        jogo_xpath = f"//main/div[3]/div/div/div/div/div[{i}]"
+                        jogo = self.driver.find_element(By.XPATH, jogo_xpath)
+                        logger.info(f"Processando jogo {i} com XPath: {jogo_xpath}")
                     try:
                         logger.info(f"Processando jogo {i+1}...")
                         
-                        # Extrair dados de cada jogo
-                        try:
-                            liga = jogo.find_element(By.CSS_SELECTOR, ".l-item-emphasis").text.strip()
-                        except:
+                        # Extrair texto completo do jogo
+                        game_text = jogo.text.strip()
+                        logger.info(f"Texto do jogo {i}: {game_text}")
+                        
+                        if not game_text or len(game_text) < 10:
+                            logger.info(f"Jogo {i} vazio ou muito curto, pulando...")
+                            continue
+                        
+                        # Extrair dados usando regex do texto completo
+                        import re
+                        
+                        # Extrair liga
+                        liga_match = re.search(r'([A-Za-z\s]+):\s*([A-Za-z\s]+)', game_text)
+                        if liga_match:
+                            liga = f"{liga_match.group(1).strip()}: {liga_match.group(2).strip()}"
+                        else:
                             liga = "Liga não encontrada"
-                            
-                        try:
-                            # Tentar diferentes selectors para times
-                            casa = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(4)").text.strip()
-                            if not casa or len(casa) < 2:
-                                casa = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(3)").text.strip()
-                        except:
-                            try:
-                                casa = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(3)").text.strip()
-                            except:
-                                casa = "Time casa não encontrado"
-                            
-                        try:
-                            # Tentar diferentes selectors para times
-                            fora = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(7)").text.strip()
-                            if not fora or len(fora) < 2:
-                                fora = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(6)").text.strip()
-                        except:
-                            try:
-                                fora = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(6)").text.strip()
-                            except:
-                                fora = "Time fora não encontrado"
-                            
-                        try:
-                            aposta = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(10)").text.strip()
-                        except:
+                        
+                        # Extrair data/hora
+                        datetime_match = re.search(r'(\d{2}/\d{2}\s+\d{2}:\d{2})', game_text)
+                        if datetime_match:
+                            datetime_text = datetime_match.group(1)
+                        else:
+                            datetime_text = "Data/Hora não encontrada"
+                        
+                        # Extrair times (procurar por padrão "Time1 x Time2")
+                        teams_match = re.search(r'([A-Za-zÀ-ÿ\s]+)\s+x\s+([A-Za-zÀ-ÿ\s]+)', game_text)
+                        if teams_match:
+                            casa = teams_match.group(1).strip()
+                            fora = teams_match.group(2).strip()
+                        else:
+                            casa = "Time casa não encontrado"
+                            fora = "Time fora não encontrado"
+                        
+                        # Extrair seleção
+                        selection_match = re.search(r'Vencedor:\s*([A-Za-zÀ-ÿ\s]+)', game_text)
+                        if selection_match:
+                            aposta = f"Vencedor: {selection_match.group(1).strip()}"
+                        elif 'Empate' in game_text:
+                            aposta = "Empate"
+                        else:
                             aposta = "Aposta não encontrada"
-                            
-                        try:
-                            odd = jogo.find_element(By.CSS_SELECTOR, ".col-auto:nth-child(11)").text.strip()
-                        except:
+                        
+                        # Extrair odd
+                        odds_match = re.search(r'\b(\d+\.\d+)\b', game_text)
+                        if odds_match:
+                            odd = odds_match.group(1)
+                        else:
                             odd = "Odd não encontrada"
                         
                         # Criar hash único para evitar duplicatas
@@ -440,24 +473,41 @@ class ValSportsScraper:
             except Exception as e:
                 logger.warning(f"Erro na extração específica: {str(e)}")
             
-            # Tentar capturar nome e valor diretamente dos campos
+            # Capturar dados principais usando XPaths exatos
             try:
+                # Total das odds
+                total_odds_element = self.driver.find_element(By.XPATH, "//main/div[3]/div/div[2]/div/div/div/div[2]")
+                total_odds_text = total_odds_element.text.strip()
+                if total_odds_text:
+                    bet_data['total_odds'] = total_odds_text
+                    logger.info(f"Total odds capturado: {total_odds_text}")
+                
+                # Possível retorno
+                possible_prize_element = self.driver.find_element(By.XPATH, "//main/div[3]/div/div[2]/div/div[2]/div/div[2]")
+                possible_prize_text = possible_prize_element.text.strip()
+                if possible_prize_text:
+                    bet_data['possible_prize'] = possible_prize_text
+                    logger.info(f"Possível prêmio capturado: {possible_prize_text}")
+                
                 # Nome do apostador
-                name_field = self.driver.find_element(By.CSS_SELECTOR, ".mb-1:nth-child(3) .form-control")
+                name_field = self.driver.find_element(By.XPATH, "(//input[@type='text'])[2]")
                 name_value = name_field.get_attribute("value")
                 if name_value and name_value.strip():
                     bet_data['bettor_name'] = name_value.strip()
+                    logger.info(f"Nome do apostador capturado: {name_value.strip()}")
                 
                 # Valor da aposta
-                value_field = self.driver.find_element(By.CSS_SELECTOR, ".mb-1:nth-child(4) .form-control")
+                value_field = self.driver.find_element(By.XPATH, "(//input[@type='text'])[3]")
                 value_value = value_field.get_attribute("value")
                 if value_value and value_value.strip():
                     if not value_value.startswith('R$'):
                         bet_data['bet_value'] = f"R$ {value_value.strip()}"
                     else:
                         bet_data['bet_value'] = value_value.strip()
+                    logger.info(f"Valor da aposta capturado: {bet_data['bet_value']}")
+                    
             except Exception as e:
-                logger.warning(f"Não foi possível capturar campos específicos: {str(e)}")
+                logger.warning(f"Erro ao capturar dados principais: {str(e)}")
             
             # Valores padrão se não encontrados
             if bet_data.get('league') == 'N/A':
