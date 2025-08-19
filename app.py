@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-from scraper.valsports_scraper import ValSportsScraper
+from scraper.valsports_scraper_final import ValSportsScraper
 import logging
 import time
 import threading
