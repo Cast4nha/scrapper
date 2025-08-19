@@ -275,11 +275,11 @@ class ValSportsScraper:
                 
                 # Extrair dados usando XPath para cada jogo individual
                 game_xpaths = [
-                    "//main/div[3]/div/div/div/div/div[2]",  # Jogo 1
-                    "//main/div[3]/div/div/div/div/div[3]",  # Jogo 2
-                    "//main/div[3]/div/div/div/div/div[4]",  # Jogo 3
-                    "//main/div[3]/div/div/div/div/div[5]",  # Jogo 4
-                    "//div[3]/div/div/div/div/div[5]"        # Jogo 5
+                    "//main/div[3]/div/div/div/div/div[1]",  # Jogo 1 - CS Uruguay de Coronado x Sporting San José
+                    "//main/div[3]/div/div/div/div/div[2]",  # Jogo 2 - CD Águila x CD Olimpia
+                    "//main/div[3]/div/div/div/div/div[3]",  # Jogo 3 - Plaza Amador x Manágua FC
+                    "//main/div[3]/div/div/div/div/div[4]",  # Jogo 4 - Port Vale x Stevenage
+                    "//main/div[3]/div/div/div/div/div[5]"   # Jogo 5 - Rotherham x Burton Albion
                 ]
                 
                 for i, xpath in enumerate(game_xpaths):
@@ -339,6 +339,12 @@ class ValSportsScraper:
                                 if 'Empate' not in all_selections:
                                     all_selections.append('Empate')
                                     logger.info(f"Seleção encontrada no jogo {i+1}: Empate")
+                            
+                            # Se não encontrou seleção específica, verificar se há apenas "Empate" na linha
+                            if not selection_match and 'Empate' in game_text and 'Vencedor' not in game_text:
+                                if 'Empate' not in all_selections:
+                                    all_selections.append('Empate')
+                                    logger.info(f"Seleção encontrada no jogo {i+1}: Empate (linha única)")
                             
                             # Extrair odds
                             odds_match = re.search(r'\b\d+\.\d+\b', game_text)
