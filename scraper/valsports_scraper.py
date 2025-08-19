@@ -309,14 +309,26 @@ class ValSportsScraper:
                             liga = "Liga não encontrada"
                             
                         try:
+                            # Tentar diferentes selectors para times
                             casa = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(4)").text.strip()
+                            if not casa or len(casa) < 2:
+                                casa = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(3)").text.strip()
                         except:
-                            casa = "Time casa não encontrado"
+                            try:
+                                casa = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(3)").text.strip()
+                            except:
+                                casa = "Time casa não encontrado"
                             
                         try:
+                            # Tentar diferentes selectors para times
                             fora = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(7)").text.strip()
+                            if not fora or len(fora) < 2:
+                                fora = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(6)").text.strip()
                         except:
-                            fora = "Time fora não encontrado"
+                            try:
+                                fora = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(6)").text.strip()
+                            except:
+                                fora = "Time fora não encontrado"
                             
                         try:
                             aposta = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(10)").text.strip()
@@ -338,6 +350,17 @@ class ValSportsScraper:
                         games_found += 1
                         
                         logger.info(f"Jogo {games_found}: {liga} - {casa} x {fora} - {aposta} ({odd})")
+                        
+                        # Debug: mostrar todos os elementos .col do jogo
+                        try:
+                            col_elements = jogo.find_elements(By.CSS_SELECTOR, ".col")
+                            logger.info(f"Jogo {games_found} - Elementos .col encontrados: {len(col_elements)}")
+                            for idx, col in enumerate(col_elements):
+                                col_text = col.text.strip()
+                                if col_text:
+                                    logger.info(f"  Col {idx}: '{col_text}'")
+                        except Exception as e:
+                            logger.error(f"Erro ao debug elementos .col: {str(e)}")
                         
                         # Adicionar aos arrays
                         all_leagues.append(liga)
