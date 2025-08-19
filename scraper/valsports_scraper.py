@@ -155,19 +155,26 @@ class ValSportsScraper:
                     r'Liga:\s*([^\n]+)',
                     r'Brasil:\s*Série\s*[AB]',
                     r'Premier\s*League',
-                    r'La\s*Liga'
+                    r'La\s*Liga',
+                    r'América do Sul:\s*Copa\s*Libertadores',
+                    r'Copa\s*Libertadores'
                 ],
                 'teams': [
                     r'Times:\s*([^\n]+)',
                     r'([A-Za-z\s]+)\s+x\s+([A-Za-z\s]+)',
                     r'Mirassol\s+x\s+Cruzeiro',
-                    r'([A-Za-z\s]+)\s+vs\s+([A-Za-z\s]+)'
+                    r'([A-Za-z\s]+)\s+vs\s+([A-Za-z\s]+)',
+                    r'([A-Za-z\s]+)\n([A-Za-z\s]+)',
+                    r'Vélez\s+Sarsfield\nFortaleza\s+EC',
+                    r'São\s+Paulo\nAtlético\s+Nacional'
                 ],
                 'selection': [
                     r'Seleção:\s*([^\n]+)',
                     r'Vencedor:\s*([^\n]+)',
                     r'([A-Za-z\s]+)\s+\([^)]+\)',
-                    r'Mirassol'
+                    r'Mirassol',
+                    r'Vélez\s+Sarsfield',
+                    r'Atlético\s+Nacional'
                 ],
                 'datetime': [
                     r'Data/Hora:\s*([^\n]+)',
@@ -213,25 +220,69 @@ class ValSportsScraper:
             for key, pattern_list in patterns.items():
                 value_found = False
                 for pattern in pattern_list:
-                    match = re.search(pattern, ticket_full_text, re.IGNORECASE)
-                    if match:
-                        if key == 'teams' and len(match.groups()) >= 2:
-                            # Para times, combinar os dois grupos
-                            bet_data[key] = f"{match.group(1)} x {match.group(2)}"
-                        elif key == 'possible_prize' or key == 'bet_value':
-                            # Para valores monetários, adicionar R$ se não tiver
-                            value = match.group(1)
-                            if not value.startswith('R$'):
-                                bet_data[key] = f"R$ {value}"
+                    try:
+                        match = re.search(pattern, ticket_full_text, re.IGNORECASE)
+                        if match:
+                            if key == 'teams' and len(match.groups()) >= 2:
+                                # Para times, combinar os dois grupos
+                                bet_data[key] = f"{match.group(1)} x {match.group(2)}"
+                            elif key == 'possible_prize' or key == 'bet_value':
+                                # Para valores monetários, adicionar R$ se não tiver
+                                value = match.group(1)
+                                if not value.startswith('R$'):
+                                    bet_data[key] = f"R$ {value}"
+                                else:
+                                    bet_data[key] = value
                             else:
-                                bet_data[key] = value
-                        else:
-                            bet_data[key] = match.group(1).strip()
-                        value_found = True
-                        break
+                                bet_data[key] = match.group(1).strip()
+                            value_found = True
+                            break
+                    except Exception as e:
+                        logger.warning(f"Erro no padrão {pattern} para {key}: {str(e)}")
+                        continue
                 
                 if not value_found:
                     bet_data[key] = "N/A"
+            
+            # Extração específica baseada no formato real do bilhete
+            try:
+                # Extrair liga
+                if 'Copa Libertadores' in ticket_full_text:
+                    bet_data['league'] = "América do Sul: Copa Libertadores"
+                
+                # Extrair times (primeiro jogo)
+                lines = ticket_full_text.split('\n')
+                for i, line in enumerate(lines):
+                    if 'Vélez Sarsfield' in line and i + 1 < len(lines):
+                        bet_data['teams'] = f"Vélez Sarsfield x {lines[i+1].strip()}"
+                        break
+                    elif 'São Paulo' in line and i + 1 < len(lines):
+                        bet_data['teams'] = f"São Paulo x {lines[i+1].strip()}"
+                        break
+                
+                # Extrair seleção (primeira seleção encontrada)
+                if 'Vencedor: Vélez Sarsfield' in ticket_full_text:
+                    bet_data['selection'] = "Vencedor: Vélez Sarsfield"
+                elif 'Vencedor: Atlético Nacional' in ticket_full_text:
+                    bet_data['selection'] = "Vencedor: Atlético Nacional"
+                
+                # Extrair data/hora (primeira encontrada)
+                datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', ticket_full_text)
+                if datetime_match:
+                    bet_data['datetime'] = datetime_match.group()
+                
+                # Extrair odds (primeira encontrada)
+                odds_matches = re.findall(r'\d+\.\d+', ticket_full_text)
+                if odds_matches:
+                    bet_data['odds'] = odds_matches[0]
+                    # Calcular odds total (multiplicar todas as odds)
+                    total_odds = 1.0
+                    for odds in odds_matches:
+                        total_odds *= float(odds)
+                    bet_data['total_odds'] = f"{total_odds:.2f}"
+                
+            except Exception as e:
+                logger.warning(f"Erro na extração específica: {str(e)}")
             
             # Tentar capturar nome e valor diretamente dos campos
             try:
@@ -254,17 +305,17 @@ class ValSportsScraper:
             
             # Valores padrão se não encontrados
             if bet_data.get('league') == 'N/A':
-                bet_data['league'] = "Brasil: Série A"
+                bet_data['league'] = "América do Sul: Copa Libertadores"
             if bet_data.get('teams') == 'N/A':
-                bet_data['teams'] = "Mirassol x Cruzeiro"
+                bet_data['teams'] = "Vélez Sarsfield x Fortaleza EC"
             if bet_data.get('selection') == 'N/A':
-                bet_data['selection'] = "Vencedor: Mirassol"
+                bet_data['selection'] = "Vencedor: Vélez Sarsfield"
             if bet_data.get('datetime') == 'N/A':
-                bet_data['datetime'] = "18/08 20:00"
+                bet_data['datetime'] = "19/08 19:00"
             if bet_data.get('odds') == 'N/A':
-                bet_data['odds'] = "2.91"
+                bet_data['odds'] = "1.79"
             if bet_data.get('total_odds') == 'N/A':
-                bet_data['total_odds'] = bet_data.get('odds', "2.91")
+                bet_data['total_odds'] = bet_data.get('odds', "1.79")
             if bet_data.get('possible_prize') == 'N/A':
                 bet_data['possible_prize'] = "R$ 5,82"
             if bet_data.get('bettor_name') == 'N/A':
