@@ -273,78 +273,84 @@ class ValSportsScraper:
                 odds_matches = re.findall(r'\b\d+\.\d+\b', ticket_full_text)
                 all_odds = list(set(odds_matches))  # Remove duplicatas
                 
-                # Extrair dados linha por linha
-                lines = ticket_full_text.split('\n')
-                logger.info(f"Total de linhas no bilhete: {len(lines)}")
+                # Extrair dados usando XPath para cada jogo individual
+                game_xpaths = [
+                    "//main/div[3]/div/div/div/div/div[2]",  # Jogo 1
+                    "//main/div[3]/div/div/div/div/div[3]",  # Jogo 2
+                    "//main/div[3]/div/div/div/div/div[4]",  # Jogo 3
+                    "//main/div[3]/div/div/div/div/div[5]",  # Jogo 4
+                    "//div[3]/div/div/div/div/div[5]"        # Jogo 5
+                ]
                 
-                i = 0
-                while i < len(lines):
-                    line = lines[i].strip()
-                    logger.info(f"Linha {i}: '{line}'")
-                    
-                    # Verificar se é uma liga
-                    league_match = re.search(r'([A-Za-z\s]+):\s*([A-Za-z\s]+)', line)
-                    if league_match:
-                        league = f"{league_match.group(1)}: {league_match.group(2)}"
-                        if league not in all_leagues:
-                            all_leagues.append(league)
-                            logger.info(f"Liga encontrada: {league}")
-                    
-                    # Verificar se é uma data/hora
-                    datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', line)
-                    if datetime_match:
-                        datetime_str = datetime_match.group(0)
-                        if datetime_str not in all_datetimes:
-                            all_datetimes.append(datetime_str)
-                            logger.info(f"Data/hora encontrada: {datetime_str}")
-                    
-                    # Verificar se é um nome de time (linha com apenas letras e espaços)
-                    if (re.match(r'^[A-Za-zÀ-ÿ\s]+$', line) and 
-                        len(line) > 2 and 
-                        not re.search(r'\d', line) and  # Não contém números
-                        not re.search(r'[:\-]', line) and  # Não contém : ou -
-                        not re.search(r'Vencedor', line) and  # Não é uma seleção
-                        not re.search(r'Empate', line)):  # Não é empate
+                for i, xpath in enumerate(game_xpaths):
+                    try:
+                        game_element = self.driver.find_element(By.XPATH, xpath)
+                        game_text = game_element.text
+                        logger.info(f"Jogo {i+1} - XPath: {xpath}")
+                        logger.info(f"Texto do jogo {i+1}: {game_text}")
                         
-                        logger.info(f"Possível time encontrado: '{line}'")
-                        
-                        # Verificar se a próxima linha também é um nome de time
-                        if i + 1 < len(lines):
-                            next_line = lines[i + 1].strip()
-                            if (re.match(r'^[A-Za-zÀ-ÿ\s]+$', next_line) and 
-                                len(next_line) > 2 and 
-                                not re.search(r'\d', next_line) and
-                                not re.search(r'[:\-]', next_line) and
-                                not re.search(r'Vencedor', next_line) and
-                                not re.search(r'Empate', next_line)):
-                                
-                                team_pair = f"{line} x {next_line}"
+                        if game_text.strip():
+                            # Extrair liga
+                            league_match = re.search(r'([A-Za-z\s]+):\s*([A-Za-z\s]+)', game_text)
+                            if league_match:
+                                league = f"{league_match.group(1)}: {league_match.group(2)}"
+                                if league not in all_leagues:
+                                    all_leagues.append(league)
+                                    logger.info(f"Liga encontrada no jogo {i+1}: {league}")
+                            
+                            # Extrair data/hora
+                            datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', game_text)
+                            if datetime_match:
+                                datetime_str = datetime_match.group(0)
+                                if datetime_str not in all_datetimes:
+                                    all_datetimes.append(datetime_str)
+                                    logger.info(f"Data/hora encontrada no jogo {i+1}: {datetime_str}")
+                            
+                            # Extrair times (procurar por duas linhas consecutivas com nomes de times)
+                            game_lines = game_text.split('\n')
+                            team_lines = []
+                            for line in game_lines:
+                                line = line.strip()
+                                if (re.match(r'^[A-Za-zÀ-ÿ\s]+$', line) and 
+                                    len(line) > 2 and 
+                                    not re.search(r'\d', line) and
+                                    not re.search(r'[:\-]', line) and
+                                    not re.search(r'Vencedor', line) and
+                                    not re.search(r'Empate', line) and
+                                    not re.search(r'Costa Rica', line) and
+                                    not re.search(r'CONCACAF', line) and
+                                    not re.search(r'Inglaterra', line)):
+                                    team_lines.append(line)
+                            
+                            if len(team_lines) >= 2:
+                                team_pair = f"{team_lines[0]} x {team_lines[1]}"
                                 if team_pair not in all_teams:
                                     all_teams.append(team_pair)
-                                    logger.info(f"Confronto encontrado: {team_pair}")
-                                i += 1  # Pular a próxima linha
+                                    logger.info(f"Confronto encontrado no jogo {i+1}: {team_pair}")
+                            
+                            # Extrair seleção
+                            selection_match = re.search(r'Vencedor:\s*([A-Za-z\s]+)', game_text)
+                            if selection_match:
+                                selection = f"Vencedor: {selection_match.group(1).strip()}"
+                                if selection not in all_selections:
+                                    all_selections.append(selection)
+                                    logger.info(f"Seleção encontrada no jogo {i+1}: {selection}")
+                            elif 'Empate' in game_text:
+                                if 'Empate' not in all_selections:
+                                    all_selections.append('Empate')
+                                    logger.info(f"Seleção encontrada no jogo {i+1}: Empate")
+                            
+                            # Extrair odds
+                            odds_match = re.search(r'\b\d+\.\d+\b', game_text)
+                            if odds_match:
+                                odds = odds_match.group(0)
+                                if odds not in all_odds:
+                                    all_odds.append(odds)
+                                    logger.info(f"Odds encontrada no jogo {i+1}: {odds}")
                     
-                    # Verificar se é uma seleção
-                    selection_match = re.search(r'Vencedor:\s*([A-Za-z\s]+)', line)
-                    if selection_match:
-                        selection = f"Vencedor: {selection_match.group(1).strip()}"
-                        if selection not in all_selections:
-                            all_selections.append(selection)
-                            logger.info(f"Seleção encontrada: {selection}")
-                    elif 'Empate' in line:
-                        if 'Empate' not in all_selections:
-                            all_selections.append('Empate')
-                            logger.info("Seleção encontrada: Empate")
-                    
-                    # Verificar se é uma odds
-                    odds_match = re.search(r'\b\d+\.\d+\b', line)
-                    if odds_match:
-                        odds = odds_match.group(0)
-                        if odds not in all_odds:
-                            all_odds.append(odds)
-                            logger.info(f"Odds encontrada: {odds}")
-                    
-                    i += 1
+                    except Exception as e:
+                        logger.warning(f"Erro ao extrair jogo {i+1} com XPath {xpath}: {str(e)}")
+                        continue
                 
                 # Buscar seleções específicas conhecidas
                 known_selections = [
