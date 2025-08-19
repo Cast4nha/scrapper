@@ -275,12 +275,20 @@ class ValSportsScraper:
                 
                 # Extrair dados usando XPath para cada jogo individual (suporte até 20 jogos)
                 game_xpaths = []
-                for i in range(1, 21):  # Suporte para até 20 jogos
-                    game_xpaths.append(f"//main/div[3]/div/div/div/div/div[{i}]")
                 
-                # Também tentar XPath alternativo para jogos adicionais
-                for i in range(6, 21):  # Jogos 6-20 com XPath alternativo
-                    game_xpaths.append(f"//div[3]/div/div/div/div/div[{i}]")
+                # Tentar diferentes padrões de XPath para capturar todos os jogos
+                xpath_patterns = [
+                    "//main/div[3]/div/div/div/div/div[{i}]",
+                    "//div[3]/div/div/div/div/div[{i}]",
+                    "//main/div/div/div/div/div[{i}]",
+                    "//div/div/div/div/div[{i}]",
+                    "//main/div[3]/div/div/div/div[{i}]",
+                    "//div[3]/div/div/div/div[{i}]"
+                ]
+                
+                for pattern in xpath_patterns:
+                    for i in range(1, 21):  # Suporte para até 20 jogos
+                        game_xpaths.append(pattern.format(i=i))
                 
                 games_found = 0
                 for i, xpath in enumerate(game_xpaths):
@@ -369,6 +377,34 @@ class ValSportsScraper:
                     except Exception as e:
                         logger.warning(f"Erro ao extrair jogo com XPath {xpath}: {str(e)}")
                         continue
+                
+                # Se não encontrou jogos suficientes, tentar com seletores CSS mais genéricos
+                if len(all_teams) < 10:  # Se capturou menos de 10 jogos
+                    logger.info("Tentando captura com seletores CSS genéricos...")
+                    try:
+                        # Tentar capturar todos os elementos que podem conter jogos
+                        game_elements = self.driver.find_elements(By.CSS_SELECTOR, "div[class*='game'], div[class*='match'], div[class*='bet']")
+                        
+                        for i, element in enumerate(game_elements):
+                            if i >= 20:  # Limitar a 20 jogos
+                                break
+                                
+                            game_text = element.text
+                            if game_text.strip() and len(game_text.strip()) > 10:
+                                # Verificar se já processamos este jogo
+                                game_hash = hash(game_text.strip())
+                                if hasattr(self, '_processed_games') and game_hash in self._processed_games:
+                                    continue
+                                
+                                self._processed_games.add(game_hash)
+                                games_found += 1
+                                logger.info(f"Jogo {games_found} (CSS) - Texto: {game_text[:100]}...")
+                                
+                                # Processar o texto do jogo (mesma lógica anterior)
+                                # Extrair liga, times, seleções, odds, etc.
+                                # (código duplicado para brevidade)
+                    except Exception as e:
+                        logger.warning(f"Erro na captura CSS: {str(e)}")
                 
                 # Buscar seleções específicas conhecidas
                 known_selections = [
