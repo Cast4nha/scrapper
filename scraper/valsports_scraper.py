@@ -353,9 +353,18 @@ class ValSportsScraper:
                         if teams_match:
                             casa = teams_match.group(1).strip()
                             fora = teams_match.group(2).strip()
+                            logger.info(f"Times encontrados: {casa} x {fora}")
                         else:
-                            casa = "Time casa não encontrado"
-                            fora = "Time fora não encontrado"
+                            # Tentar padrão alternativo sem "x"
+                            teams_match = re.search(r'([A-Za-zÀ-ÿ\s]+)\s+([A-Za-zÀ-ÿ\s]+)', game_text)
+                            if teams_match:
+                                casa = teams_match.group(1).strip()
+                                fora = teams_match.group(2).strip()
+                                logger.info(f"Times encontrados (padrão alternativo): {casa} x {fora}")
+                            else:
+                                casa = "Time casa não encontrado"
+                                fora = "Time fora não encontrado"
+                                logger.warning(f"Não foi possível extrair times do texto: {game_text}")
                         
                         # Extrair seleção
                         selection_match = re.search(r'Vencedor:\s*([A-Za-zÀ-ÿ\s]+)', game_text)
