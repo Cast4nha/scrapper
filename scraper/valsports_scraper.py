@@ -275,9 +275,12 @@ class ValSportsScraper:
                 
                 # Extrair dados linha por linha
                 lines = ticket_full_text.split('\n')
+                logger.info(f"Total de linhas no bilhete: {len(lines)}")
+                
                 i = 0
                 while i < len(lines):
                     line = lines[i].strip()
+                    logger.info(f"Linha {i}: '{line}'")
                     
                     # Verificar se é uma liga
                     league_match = re.search(r'([A-Za-z\s]+):\s*([A-Za-z\s]+)', line)
@@ -285,6 +288,7 @@ class ValSportsScraper:
                         league = f"{league_match.group(1)}: {league_match.group(2)}"
                         if league not in all_leagues:
                             all_leagues.append(league)
+                            logger.info(f"Liga encontrada: {league}")
                     
                     # Verificar se é uma data/hora
                     datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', line)
@@ -292,6 +296,7 @@ class ValSportsScraper:
                         datetime_str = datetime_match.group(0)
                         if datetime_str not in all_datetimes:
                             all_datetimes.append(datetime_str)
+                            logger.info(f"Data/hora encontrada: {datetime_str}")
                     
                     # Verificar se é um nome de time (linha com apenas letras e espaços)
                     if (re.match(r'^[A-Za-zÀ-ÿ\s]+$', line) and 
@@ -300,6 +305,8 @@ class ValSportsScraper:
                         not re.search(r'[:\-]', line) and  # Não contém : ou -
                         not re.search(r'Vencedor', line) and  # Não é uma seleção
                         not re.search(r'Empate', line)):  # Não é empate
+                        
+                        logger.info(f"Possível time encontrado: '{line}'")
                         
                         # Verificar se a próxima linha também é um nome de time
                         if i + 1 < len(lines):
@@ -314,6 +321,7 @@ class ValSportsScraper:
                                 team_pair = f"{line} x {next_line}"
                                 if team_pair not in all_teams:
                                     all_teams.append(team_pair)
+                                    logger.info(f"Confronto encontrado: {team_pair}")
                                 i += 1  # Pular a próxima linha
                     
                     # Verificar se é uma seleção
@@ -322,9 +330,11 @@ class ValSportsScraper:
                         selection = f"Vencedor: {selection_match.group(1).strip()}"
                         if selection not in all_selections:
                             all_selections.append(selection)
+                            logger.info(f"Seleção encontrada: {selection}")
                     elif 'Empate' in line:
                         if 'Empate' not in all_selections:
                             all_selections.append('Empate')
+                            logger.info("Seleção encontrada: Empate")
                     
                     # Verificar se é uma odds
                     odds_match = re.search(r'\b\d+\.\d+\b', line)
@@ -332,6 +342,7 @@ class ValSportsScraper:
                         odds = odds_match.group(0)
                         if odds not in all_odds:
                             all_odds.append(odds)
+                            logger.info(f"Odds encontrada: {odds}")
                     
                     i += 1
                 
