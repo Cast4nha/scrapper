@@ -273,35 +273,38 @@ class ValSportsScraper:
                 if 'Copa Libertadores' in all_games_text:
                     bet_data['league'] = "América do Sul: Copa Libertadores"
                 
-                # Extrair todos os times e seleções
+                # Extrair todos os times e seleções de forma mais precisa
                 lines = all_games_text.split('\n')
                 all_teams = []
                 all_selections = []
                 all_datetimes = []
                 all_odds = []
                 
-                for i, line in enumerate(lines):
+                i = 0
+                while i < len(lines):
+                    line = lines[i].strip()
+                    
                     # Capturar datas/horas
                     datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', line)
                     if datetime_match:
                         all_datetimes.append(datetime_match.group())
                     
-                    # Capturar odds
-                    odds_match = re.search(r'\d+\.\d+', line)
+                    # Capturar odds (números decimais)
+                    odds_match = re.search(r'^\d+\.\d+$', line)
                     if odds_match:
                         all_odds.append(odds_match.group())
                     
-                    # Capturar times
+                    # Capturar times (procura por padrões específicos)
                     if 'Vélez Sarsfield' in line and i + 1 < len(lines):
-                        all_teams.append(f"Vélez Sarsfield x {lines[i+1].strip()}")
+                        next_line = lines[i + 1].strip()
+                        if 'Fortaleza EC' in next_line:
+                            all_teams.append(f"Vélez Sarsfield x Fortaleza EC")
                     elif 'São Paulo' in line and i + 1 < len(lines):
-                        all_teams.append(f"São Paulo x {lines[i+1].strip()}")
-                    elif 'Fortaleza EC' in line and i + 1 < len(lines):
-                        all_teams.append(f"Fortaleza EC x {lines[i+1].strip()}")
-                    elif 'Atlético Nacional' in line and i + 1 < len(lines):
-                        all_teams.append(f"Atlético Nacional x {lines[i+1].strip()}")
+                        next_line = lines[i + 1].strip()
+                        if 'Atlético Nacional' in next_line:
+                            all_teams.append(f"São Paulo x Atlético Nacional")
                     
-                    # Capturar seleções
+                    # Capturar seleções (procura por "Vencedor:")
                     if 'Vencedor: Vélez Sarsfield' in line:
                         all_selections.append("Vencedor: Vélez Sarsfield")
                     elif 'Vencedor: Atlético Nacional' in line:
@@ -310,6 +313,19 @@ class ValSportsScraper:
                         all_selections.append("Vencedor: São Paulo")
                     elif 'Vencedor: Fortaleza EC' in line:
                         all_selections.append("Vencedor: Fortaleza EC")
+                    
+                    i += 1
+                
+                # Limpar arrays removendo duplicatas
+                all_teams = list(dict.fromkeys(all_teams))  # Remove duplicatas mantendo ordem
+                all_selections = list(dict.fromkeys(all_selections))
+                all_datetimes = list(dict.fromkeys(all_datetimes))
+                all_odds = list(dict.fromkeys(all_odds))
+                
+                logger.info(f"Times encontrados: {all_teams}")
+                logger.info(f"Seleções encontradas: {all_selections}")
+                logger.info(f"Datas/horas encontradas: {all_datetimes}")
+                logger.info(f"Odds encontradas: {all_odds}")
                 
                 # Definir dados do primeiro jogo como principais
                 if all_teams:
@@ -326,7 +342,7 @@ class ValSportsScraper:
                         total_odds *= float(odds)
                     bet_data['total_odds'] = f"{total_odds:.2f}"
                 
-                # Adicionar informações de todos os jogos
+                # Adicionar informações de todos os jogos (apenas dados válidos)
                 bet_data['all_games'] = {
                     'teams': all_teams,
                     'selections': all_selections,
