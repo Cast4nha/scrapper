@@ -303,7 +303,12 @@ class ValSportsScraper:
                     quantidade_match = re.search(r'(\d+)', quantidade_text)
                     if quantidade_match:
                         max_jogos = int(quantidade_match.group(1))
-                        logger.info(f"Bilhete com {max_jogos} jogos")
+                        # Limitar a 10 jogos para evitar timeout
+                        if max_jogos > 10:
+                            logger.info(f"Bilhete com {max_jogos} jogos, limitando a 10 para evitar timeout")
+                            max_jogos = 10
+                        else:
+                            logger.info(f"Bilhete com {max_jogos} jogos")
                     else:
                         max_jogos = 10  # Fallback
                         logger.info(f"Não foi possível extrair quantidade, usando fallback: {max_jogos}")
@@ -318,7 +323,10 @@ class ValSportsScraper:
                 for i in range(1, max_jogos + 1):
                     try:
                         jogo_xpath = f"//main/div[3]/div/div/div/div/div[{i}]"
-                        jogo = self.driver.find_element(By.XPATH, jogo_xpath)
+                        # Usar WebDriverWait com timeout curto para evitar travamento
+                        jogo = WebDriverWait(self.driver, 2).until(
+                            EC.presence_of_element_located((By.XPATH, jogo_xpath))
+                        )
                         logger.info(f"Processando jogo {i} com XPath: {jogo_xpath}")
                         
                         logger.info(f"Processando jogo {i}...")
