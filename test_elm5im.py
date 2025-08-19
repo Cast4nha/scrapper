@@ -18,14 +18,14 @@ def test_elm5im():
     
     # Dados da requisição
     payload = {
-        "bet_code": "TQE4X1"
+        "bet_code": "ELM5IM"
     }
     
     headers = {
         "Content-Type": "application/json"
     }
     
-    print(f"🧪 TESTE ESPECÍFICO - BILHETE TQE4X1 (15 JOGOS)")
+    print(f"🧪 TESTE ESPECÍFICO - BILHETE ELM5IM (5 JOGOS)")
     print(f"📡 URL: {url}")
     print(f"📦 Payload: {json.dumps(payload, indent=2)}")
     print("-" * 50)
@@ -76,21 +76,21 @@ def test_elm5im():
                     print(f"   📅 Datas/Horas: {all_games.get('datetimes', [])}")
                     print(f"   📈 Odds: {all_games.get('odds', [])}")
                     
-                    # Análise específica do bilhete TQE4X1
+                    # Análise específica do bilhete ELM5IM
                     odds_list = all_games.get('odds', [])
-                    print(f"\n🔍 ANÁLISE DO BILHETE TQE4X1:")
+                    print(f"\n🔍 ANÁLISE DO BILHETE ELM5IM:")
                     print(f"   📈 Número de odds encontradas: {len(odds_list)}")
-                    if len(odds_list) == 15:
-                        print("   ✅ CORRETO! Encontrou 15 odds como esperado")
+                    if len(odds_list) == 5:
+                        print("   ✅ CORRETO! Encontrou 5 odds como esperado")
                     else:
-                        print(f"   ❌ ERRO! Esperado: 15 odds, Encontrado: {len(odds_list)}")
+                        print(f"   ❌ ERRO! Esperado: 5 odds, Encontrado: {len(odds_list)}")
                     
                     teams_list = all_games.get('teams', [])
                     print(f"   ⚽ Número de times encontrados: {len(teams_list)}")
-                    if len(teams_list) == 15:
-                        print("   ✅ CORRETO! Encontrou 15 confrontos como esperado")
+                    if len(teams_list) == 5:
+                        print("   ✅ CORRETO! Encontrou 5 confrontos como esperado")
                     else:
-                        print(f"   ❌ ERRO! Esperado: 15 confrontos, Encontrado: {len(teams_list)}")
+                        print(f"   ❌ ERRO! Esperado: 5 confrontos, Encontrado: {len(teams_list)}")
                     
                     # Mostrar alguns exemplos de jogos
                     if teams_list:

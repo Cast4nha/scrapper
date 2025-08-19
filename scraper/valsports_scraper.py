@@ -276,23 +276,14 @@ class ValSportsScraper:
                 # Extrair dados usando XPath para cada jogo individual (estrutura sequencial)
                 game_xpaths = []
                 
-                # Detectar quantos jogos existem primeiro
-                max_games = 0
-                for i in range(1, 21):  # Verificar até 20 jogos
-                    try:
-                        xpath = f"//div[3]/div/div/div/div/div[{i}]"
-                        element = self.driver.find_element(By.XPATH, xpath)
-                        if element.text.strip():
-                            max_games = i
-                    except:
-                        break
-                
-                logger.info(f"Total de jogos detectados: {max_games}")
-                
-                # Criar XPaths apenas para os jogos que existem
-                game_xpaths = []
-                for i in range(1, max_games + 1):
-                    game_xpaths.append(f"//div[3]/div/div/div/div/div[{i}]")
+                # Usar XPaths fixos que sabemos que funcionam
+                game_xpaths = [
+                    "//div[3]/div/div/div/div/div[1]",
+                    "//div[3]/div/div/div/div/div[2]",
+                    "//div[3]/div/div/div/div/div[3]",
+                    "//div[3]/div/div/div/div/div[4]",
+                    "//div[3]/div/div/div/div/div[5]"
+                ]
                 
                 games_found = 0
                 for i, xpath in enumerate(game_xpaths):
