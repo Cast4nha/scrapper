@@ -1,61 +1,78 @@
-# 🚀 Guia de Integração n8n - ValSports Scraper
+# 🚀 Guia de Integração n8n - ValSports Scraper API
 
 ## 📋 **Visão Geral**
 
-Este fluxo n8n funciona como uma **ferramenta (tool)** que pode ser chamada pelo seu fluxo principal de WhatsApp. Ele gerencia o login e captura de dados do bilhete no sistema ValSports.
+Este guia explica como integrar o **ValSports Scraper API** com o **n8n** para automatizar a captura de dados de bilhetes de apostas.
 
-## 🔧 **Instalação**
+## 🎯 **Abordagens Disponíveis**
 
-### **1. Importar o Fluxo**
+### **1. Abordagem Otimizada (RECOMENDADA) ⭐**
+- **Endpoint**: `/api/capture-bet`
+- **Método**: `POST`
+- **Funcionalidade**: Login + Captura em uma única operação
+- **Vantagens**: Mais rápido, mais simples, menos pontos de falha
+
+### **2. Abordagem Tradicional**
+- **Endpoints**: `/api/login` + `/api/scrape-bet`
+- **Método**: `POST` para ambos
+- **Funcionalidade**: Login separado da captura
+- **Vantagens**: Mais controle sobre cada etapa
+
+## 🔧 **Configuração da API**
+
+### **URL Base**
+```
+https://valsports.qobebrasil.com.br
+```
+
+### **Endpoints Disponíveis**
+- `GET /health` - Verificação de saúde da API
+- `GET /` - Informações da API
+- `POST /api/capture-bet` - **Login + Captura (OTIMIZADO)**
+- `POST /api/login` - Login separado
+- `POST /api/scrape-bet` - Captura separada
+- `POST /api/confirm-bet` - Confirmação de aposta
+
+## 🚀 **Abordagem Otimizada (RECOMENDADA)**
+
+### **1. Importar o Workflow**
+
 1. Abra o n8n
 2. Clique em **"Import from file"**
 3. Selecione o arquivo `n8n_valsports_workflow.json`
 4. Clique em **"Import"**
 
-### **2. Ativar o Webhook**
-1. Clique no nó **"Webhook Trigger"**
-2. Clique em **"Listen for calls"**
-3. Copie a URL do webhook (ex: `https://seu-n8n.com/webhook/valsports-scraper`)
+### **2. Configurar o Workflow**
 
-## 📡 **Como Usar**
+O workflow otimizado contém apenas **3 nós**:
 
-### **Endpoint do Webhook**
-```
-POST https://seu-n8n.com/webhook/valsports-scraper
-```
+1. **"When executed by another workflow"** - Trigger
+2. **"API Capture Bet"** - Requisição HTTP
+3. **"Response"** - Resposta
 
-### **Ações Disponíveis**
+### **3. Ativar o Workflow**
 
-#### **1. Login no Sistema**
-```json
-{
-  "action": "login",
-  "username": "cairovinicius",
-  "password": "279999"
-}
-```
+1. Clique no botão **"Active"** para ativar
+2. Anote o **Webhook ID** gerado
 
-**Resposta de Sucesso:**
-```json
-{
-  "status": "success",
-  "message": "Login realizado com sucesso",
-  "session_id": "abc123..."
-}
+### **4. Usar o Workflow**
+
+#### **Chamada do Fluxo Principal:**
+```javascript
+// No seu fluxo principal do n8n
+const result = await $http.post({
+  url: 'https://seu-n8n.com/webhook/valsports-bet-capture-optimized',
+  body: {
+    bet_code: 'dmgkrn'  // Código do bilhete
+  }
+});
 ```
 
-#### **2. Capturar Dados do Bilhete**
-```json
-{
-  "action": "scrape_bet",
-  "bet_code": "dmgkrn"
-}
-```
-
-**Resposta de Sucesso:**
+#### **Resposta de Sucesso:**
 ```json
 {
   "status": "success",
+  "bet_code": "dmgkrn",
   "data": {
     "league": "Premier League",
     "teams": "Manchester United vs Liverpool",
@@ -66,136 +83,153 @@ POST https://seu-n8n.com/webhook/valsports-scraper
     "possible_prize": "R$ 525,00",
     "bettor_name": "João Silva",
     "bet_value": "R$ 100,00"
-  }
+  },
+  "message": "Dados capturados com sucesso"
 }
 ```
 
-#### **3. Confirmar Aposta**
+#### **Resposta de Erro:**
 ```json
 {
-  "action": "confirm_bet",
-  "bet_code": "dmgkrn"
+  "status": "error",
+  "message": "Falha no login - credenciais inválidas"
 }
 ```
 
-**Resposta de Sucesso:**
-```json
-{
-  "status": "success",
-  "message": "Aposta confirmada com sucesso"
-}
-```
+## 🔧 **Abordagem Tradicional (Legacy)**
 
-## 🔄 **Integração com Fluxo Principal**
-
-### **Exemplo de Uso no Fluxo Principal:**
+### **1. Workflow de Login**
 
 ```javascript
-// 1. Receber mensagem do WhatsApp
-const message = $input.first().json.message;
-const betCode = extractBetCode(message); // "dmgkrn"
-
-// 2. Chamar ValSports Scraper
-const scraperResponse = await $http.post({
-  url: 'https://seu-n8n.com/webhook/valsports-scraper',
+// Requisição para login
+const loginResponse = await $http.post({
+  url: 'https://valsports.qobebrasil.com.br/api/login',
   body: {
-    action: 'scrape_bet',
+    username: 'cairovinicius',
+    password: '279999'
+  }
+});
+
+if (loginResponse.status === 'success') {
+  // Login bem-sucedido, prosseguir com captura
+}
+```
+
+### **2. Workflow de Captura**
+
+```javascript
+// Requisição para capturar dados
+const captureResponse = await $http.post({
+  url: 'https://valsports.qobebrasil.com.br/api/scrape-bet',
+  body: {
+    bet_code: 'dmgkrn'
+  }
+});
+```
+
+## 📊 **Comparação de Performance**
+
+| Métrica | Abordagem Otimizada | Abordagem Tradicional |
+|---------|-------------------|---------------------|
+| **Requisições** | 1 | 2 |
+| **Tempo Estimado** | ~10-15s | ~20-30s |
+| **Complexidade** | Baixa | Média |
+| **Pontos de Falha** | 1 | 2 |
+| **Manutenção** | Fácil | Moderada |
+
+## 🧪 **Testando a Integração**
+
+### **Script de Teste Python**
+```bash
+python test_capture_bet.py
+```
+
+### **Teste Manual com curl**
+```bash
+curl -X POST https://valsports.qobebrasil.com.br/api/capture-bet \
+  -H "Content-Type: application/json" \
+  -d '{"bet_code": "dmgkrn"}'
+```
+
+## 🔄 **Fluxo Completo no n8n**
+
+### **1. Receber Mensagem WhatsApp**
+```javascript
+// Trigger: WhatsApp Message
+if (message.text.includes('bilhete')) {
+  // Extrair código do bilhete
+  const betCode = extractBetCode(message.text);
+  
+  // Chamar workflow de captura
+  const betData = await callCaptureWorkflow(betCode);
+  
+  // Enviar dados para o apostador
+  await sendBetDataToUser(betData);
+}
+```
+
+### **2. Processar Pagamento**
+```javascript
+// Após captura bem-sucedida
+if (betData.status === 'success') {
+  // Criar cobrança PIX
+  const pixCharge = await createPixCharge(betData.data.bet_value);
+  
+  // Enviar chave PIX para o apostador
+  await sendPixKeyToUser(pixCharge);
+}
+```
+
+### **3. Confirmar Aposta**
+```javascript
+// Após confirmação do pagamento
+const confirmation = await $http.post({
+  url: 'https://valsports.qobebrasil.com.br/api/confirm-bet',
+  body: {
     bet_code: betCode
   }
 });
 
-// 3. Processar resposta
-if (scraperResponse.data.status === 'success') {
-  const betData = scraperResponse.data.data;
-  
-  // 4. Enviar dados para o apostador
-  await sendWhatsAppMessage({
-    to: userPhone,
-    message: `📋 *Dados do Bilhete*\n\n` +
-            `🏆 Liga: ${betData.league}\n` +
-            `⚽ Jogo: ${betData.teams}\n` +
-            `🎯 Seleção: ${betData.selection}\n` +
-            `📅 Data: ${betData.datetime}\n` +
-            `📊 Odds: ${betData.odds}\n` +
-            `💰 Valor: ${betData.bet_value}\n` +
-            `🏆 Prêmio: ${betData.possible_prize}\n\n` +
-            `💳 *Chave PIX:* 123456789\n` +
-            `📱 *Valor:* ${betData.bet_value}`
-  });
+if (confirmation.status === 'success') {
+  await sendConfirmationToUser();
 }
 ```
 
-## 🛠️ **Configuração no Fluxo Principal**
+## ⚠️ **Considerações Importantes**
 
-### **1. Adicionar Nó HTTP Request**
-- **URL**: `https://seu-n8n.com/webhook/valsports-scraper`
-- **Method**: `POST`
-- **Headers**: `Content-Type: application/json`
-- **Body**: JSON com `action` e parâmetros
+### **Rate Limiting**
+- A API pode ter limitações de requisições
+- Implemente delays entre chamadas se necessário
 
-### **2. Tratamento de Erros**
-```javascript
-if (scraperResponse.data.status === 'error') {
-  await sendWhatsAppMessage({
-    to: userPhone,
-    message: `❌ Erro: ${scraperResponse.data.message}`
-  });
-  return;
-}
-```
+### **Tratamento de Erros**
+- Sempre verifique o status da resposta
+- Implemente retry logic para falhas temporárias
 
-## 📱 **Fluxo Completo do Cambista Virtual**
+### **Logs e Monitoramento**
+- Monitore os logs da API para debugging
+- Implemente alertas para falhas críticas
 
-### **1. Receber Bilhete**
-- Apostador envia link: `https://www.valsports.net/prebet/dmgkrn`
-- Bot extrai código: `dmgkrn`
+## 🆘 **Solução de Problemas**
 
-### **2. Capturar Dados**
-- Chama ValSports Scraper
-- Recebe dados completos do bilhete
+### **Erro 401 - Falha no Login**
+- Verifique as credenciais no ambiente
+- Confirme se o site está acessível
 
-### **3. Enviar Resumo**
-- Envia dados para apostador
-- Gera chave PIX
-- Aguarda confirmação
+### **Erro 404 - Bilhete não encontrado**
+- Verifique se o código do bilhete está correto
+- Confirme se o bilhete ainda é válido
 
-### **4. Confirmar Aposta**
-- Após pagamento confirmado
-- Chama ValSports Scraper para confirmar
-- Informa sucesso ao apostador
+### **Timeout**
+- Aumente o timeout nas requisições
+- Verifique a conectividade de rede
 
-## 🔒 **Segurança**
+## 📞 **Suporte**
 
-### **Credenciais**
-- Username e password configurados no fluxo
-- Pode ser sobrescrito via parâmetros
-
-### **Validações**
-- Verificação de status de resposta
-- Tratamento de erros de rede
-- Timeout configurado
-
-## 📊 **Monitoramento**
-
-### **Logs Importantes**
-- Sucesso/falha de login
-- Captura de dados
-- Confirmação de apostas
-- Erros de API
-
-### **Métricas**
-- Tempo de resposta
-- Taxa de sucesso
-- Erros por tipo
-
-## 🚀 **Próximos Passos**
-
-1. **Testar o fluxo** com dados reais
-2. **Configurar gateway PIX** no fluxo principal
-3. **Implementar validações** adicionais
-4. **Adicionar logs** detalhados
-5. **Configurar alertas** de erro
+Para dúvidas ou problemas:
+- Verifique os logs da API
+- Teste com o script de teste fornecido
+- Consulte a documentação da API
 
 ---
 
-**✅ Sistema pronto para produção!**
+**🎯 Recomendação: Use a Abordagem Otimizada para melhor performance e simplicidade!**

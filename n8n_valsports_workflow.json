@@ -1,344 +1,76 @@
 {
-  "name": "ValSports Scraper - Login e Captura",
+  "name": "ValSports Bet Capture - Otimizado",
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "webhook-valsports-scraper",
-        "responseMode": "responseNode",
-        "options": {}
+        "mode": "workflow"
       },
-      "id": "webhook-trigger",
-      "name": "Webhook Trigger",
-      "type": "n8n-nodes-base.webhook",
+      "id": "workflow-trigger",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.workflowTrigger",
       "typeVersion": 1,
       "position": [240, 300],
-      "webhookId": "valsports-scraper-webhook"
+      "webhookId": "valsports-bet-capture-optimized"
     },
     {
       "parameters": {
-        "conditions": {
-          "string": [
+        "url": "https://valsports.qobebrasil.com.br/api/capture-bet",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "value1": "={{ $json.action }}",
-              "operation": "equals",
-              "value2": "login"
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
-        }
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "bet_code",
+              "value": "={{ $json.bet_code }}"
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "check-action-login",
-      "name": "Check Action: Login",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "id": "api-capture-bet",
+      "name": "API Capture Bet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
       "position": [460, 300]
     },
     {
       "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $json.action }}",
-              "operation": "equals",
-              "value2": "scrape_bet"
-            }
-          ]
-        }
-      },
-      "id": "check-action-scrape",
-      "name": "Check Action: Scrape Bet",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [460, 500]
-    },
-    {
-      "parameters": {
-        "url": "https://valsports.qobebrasil.com.br/api/login",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "username",
-              "value": "={{ $json.username || 'cairovinicius' }}"
-            },
-            {
-              "name": "password",
-              "value": "={{ $json.password || '279999' }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "api-login",
-      "name": "API Login",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [680, 200]
-    },
-    {
-      "parameters": {
-        "url": "https://valsports.qobebrasil.com.br/api/scrape-bet",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "bet_code",
-              "value": "={{ $json.bet_code }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "api-scrape-bet",
-      "name": "API Scrape Bet",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [680, 400]
-    },
-    {
-      "parameters": {
-        "url": "https://valsports.qobebrasil.com.br/api/confirm-bet",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "bet_code",
-              "value": "={{ $json.bet_code }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "api-confirm-bet",
-      "name": "API Confirm Bet",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [680, 600]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $json.action }}",
-              "operation": "equals",
-              "value2": "confirm_bet"
-            }
-          ]
-        }
-      },
-      "id": "check-action-confirm",
-      "name": "Check Action: Confirm Bet",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [460, 700]
-    },
-    {
-      "parameters": {
         "respondWith": "json",
         "responseBody": "={{ $json }}",
         "options": {}
       },
-      "id": "response-login",
-      "name": "Response Login",
+      "id": "response",
+      "name": "Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [900, 200]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ $json }}",
-        "options": {}
-      },
-      "id": "response-scrape",
-      "name": "Response Scrape",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [900, 400]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ $json }}",
-        "options": {}
-      },
-      "id": "response-confirm",
-      "name": "Response Confirm",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [900, 600]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\n  \"error\": \"Ação não reconhecida\",\n  \"message\": \"Use: login, scrape_bet, ou confirm_bet\",\n  \"status\": \"error\"\n}",
-        "options": {}
-      },
-      "id": "response-error",
-      "name": "Response Error",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [900, 800]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $json.status }}",
-              "operation": "equals",
-              "value2": "success"
-            }
-          ]
-        }
-      },
-      "id": "check-login-success",
-      "name": "Check Login Success",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [680, 100]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\n  \"error\": \"Falha no login\",\n  \"message\": \"={{ $json.message || 'Credenciais inválidas' }}\",\n  \"status\": \"error\"\n}",
-        "options": {}
-      },
-      "id": "response-login-error",
-      "name": "Response Login Error",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [900, 100]
+      "position": [680, 300]
     }
   ],
   "connections": {
-    "Webhook Trigger": {
+    "When executed by another workflow": {
       "main": [
         [
           {
-            "node": "Check Action: Login",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Check Action: Scrape Bet",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Check Action: Confirm Bet",
+            "node": "API Capture Bet",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check Action: Login": {
+    "API Capture Bet": {
       "main": [
         [
           {
-            "node": "API Login",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check Action: Scrape Bet": {
-      "main": [
-        [
-          {
-            "node": "API Scrape Bet",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check Action: Confirm Bet": {
-      "main": [
-        [
-          {
-            "node": "API Confirm Bet",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "API Login": {
-      "main": [
-        [
-          {
-            "node": "Check Login Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "API Scrape Bet": {
-      "main": [
-        [
-          {
-            "node": "Response Scrape",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "API Confirm Bet": {
-      "main": [
-        [
-          {
-            "node": "Response Confirm",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check Login Success": {
-      "main": [
-        [
-          {
-            "node": "Response Login",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Response Login Error",
+            "node": "Response",
             "type": "main",
             "index": 0
           }
@@ -353,13 +85,13 @@
   "staticData": null,
   "tags": [
     {
-      "createdAt": "2025-08-19T15:10:00.000Z",
-      "updatedAt": "2025-08-19T15:10:00.000Z",
-      "id": "valsports-scraper",
-      "name": "ValSports Scraper"
+      "createdAt": "2025-08-19T16:00:00.000Z",
+      "updatedAt": "2025-08-19T16:00:00.000Z",
+      "id": "valsports-bet-capture-optimized",
+      "name": "ValSports Bet Capture Optimized"
     }
   ],
   "triggerCount": 1,
-  "updatedAt": "2025-08-19T15:10:00.000Z",
+  "updatedAt": "2025-08-19T16:00:00.000Z",
   "versionId": "1"
 }

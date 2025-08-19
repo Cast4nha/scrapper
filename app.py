@@ -65,6 +65,7 @@ def root():
         'endpoints': {
             'health': '/health',
             'scrape_bet': '/api/scrape-bet',
+            'capture_bet': '/api/capture-bet',
             'login': '/api/login',
             'confirm_bet': '/api/confirm-bet'
         }
@@ -205,6 +206,66 @@ def confirm_bet():
         return jsonify({
             'success': False,
             'error': f'Erro interno: {str(e)}'
+        }), 500
+
+@app.route('/api/capture-bet', methods=['POST'])
+def capture_bet():
+    """Endpoint otimizado: Login + Captura em uma única operação"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'bet_code' not in data:
+            return jsonify({
+                'status': 'error',
+                'message': 'Código do bilhete é obrigatório'
+            }), 400
+        
+        bet_code = data['bet_code']
+        
+        logger.info(f"Capturando bilhete: {bet_code}")
+        
+        # Obter credenciais do ambiente
+        username = os.environ.get('VALSORTS_USERNAME', 'cairovinicius')
+        password = os.environ.get('VALSORTS_PASSWORD', '279999')
+        
+        # Obter instância do scraper
+        scraper_instance = get_scraper()
+        
+        # Fazer login automático
+        logger.info(f"Fazendo login para usuário: {username}")
+        login_success = scraper_instance.login(username, password)
+        
+        if not login_success:
+            logger.error("Falha no login")
+            return jsonify({
+                'status': 'error',
+                'message': 'Falha no login - credenciais inválidas'
+            }), 401
+        
+        # Capturar dados do bilhete
+        logger.info(f"Capturando dados do bilhete: {bet_code}")
+        bet_data = scraper_instance.scrape_bet_ticket(bet_code)
+        
+        if not bet_data:
+            logger.error(f"Falha ao capturar dados do bilhete: {bet_code}")
+            return jsonify({
+                'status': 'error',
+                'message': 'Falha ao capturar dados do bilhete'
+            }), 404
+        
+        logger.info(f"Dados capturados com sucesso para bilhete: {bet_code}")
+        return jsonify({
+            'status': 'success',
+            'bet_code': bet_code,
+            'data': bet_data,
+            'message': 'Dados capturados com sucesso'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro ao capturar bilhete: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Erro interno: {str(e)}'
         }), 500
 
 if __name__ == '__main__':
