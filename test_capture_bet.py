@@ -67,6 +67,18 @@ def test_capture_bet(bet_code, test_number=1):
                 print(f"   💰 Prêmio Possível: {bet_data.get('possible_prize', 'N/A')}")
                 print(f"   👤 Nome do Apostador: {bet_data.get('bettor_name', 'N/A')}")
                 print(f"   💵 Valor da Aposta: {bet_data.get('bet_value', 'N/A')}")
+                
+                # Mostrar detalhes do campo all_games
+                if 'all_games' in bet_data:
+                    all_games = bet_data['all_games']
+                    print(f"\n🎮 TODOS OS JOGOS:")
+                    print(f"   📊 Total de jogos: {all_games.get('total_games', 0)}")
+                    print(f"   ⚽ Times: {all_games.get('teams', [])}")
+                    print(f"   🎯 Seleções: {all_games.get('selections', [])}")
+                    print(f"   📅 Datas/Horas: {all_games.get('datetimes', [])}")
+                    print(f"   📈 Odds: {all_games.get('odds', [])}")
+                else:
+                    print(f"\n❌ Campo 'all_games' não encontrado!")
         else:
             print("❌ ERRO!")
             try:
@@ -133,6 +145,11 @@ def main():
     print("🚀 TESTE DO ENDPOINT OTIMIZADO - CAPTURE BET")
     print("=" * 60)
     
+    # Teste específico com o bilhete z1iym4
+    print("🧪 TESTE ESPECÍFICO - BILHETE z1iym4")
+    print("=" * 60)
+    test_capture_bet("z1iym4", 1)
+    
     # Teste de performance do cache
     test_cache_performance()
     
@@ -141,10 +158,10 @@ def main():
     print("=" * 60)
     
     # Teste com bilhete válido
-    test_capture_bet("dmgkrn", 4)
+    test_capture_bet("dmgkrn", 2)
     
     # Teste com bilhete inválido
-    test_capture_bet("invalid_code", 5)
+    test_capture_bet("invalid_code", 3)
     
     print("✅ Todos os testes concluídos!")
 
