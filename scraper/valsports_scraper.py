@@ -320,8 +320,8 @@ class ValSportsScraper:
                         jogo_xpath = f"//main/div[3]/div/div/div/div/div[{i}]"
                         jogo = self.driver.find_element(By.XPATH, jogo_xpath)
                         logger.info(f"Processando jogo {i} com XPath: {jogo_xpath}")
-                    try:
-                        logger.info(f"Processando jogo {i+1}...")
+                        
+                        logger.info(f"Processando jogo {i}...")
                         
                         # Extrair texto completo do jogo
                         game_text = jogo.text.strip()
