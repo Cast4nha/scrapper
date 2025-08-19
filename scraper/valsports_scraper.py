@@ -288,26 +288,13 @@ class ValSportsScraper:
                 games_found = 0
                 for i, xpath in enumerate(game_xpaths):
                     try:
-                        # Usar WebDriverWait com timeout curto para cada XPath
-                        game_element = WebDriverWait(self.driver, 2).until(
-                            EC.presence_of_element_located((By.XPATH, xpath))
-                        )
+                        game_element = self.driver.find_element(By.XPATH, xpath)
                         game_text = game_element.text
                         
-                        if game_text.strip() and len(game_text.strip()) > 10:  # Verificar se tem conteúdo válido
+                        if game_text.strip():
                             games_found += 1
                             logger.info(f"Jogo {games_found} - XPath: {xpath}")
                             logger.info(f"Texto do jogo {games_found}: {game_text}")
-                            
-                            # Verificar se já processamos este jogo (evitar duplicatas)
-                            game_hash = hash(game_text.strip())
-                            if hasattr(self, '_processed_games'):
-                                if game_hash in self._processed_games:
-                                    continue
-                            else:
-                                self._processed_games = set()
-                            
-                            self._processed_games.add(game_hash)
                             # Extrair liga
                             league_match = re.search(r'([A-Za-z\s]+):\s*([A-Za-z\s]+)', game_text)
                             if league_match:
