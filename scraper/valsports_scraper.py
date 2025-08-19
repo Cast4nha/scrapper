@@ -276,122 +276,88 @@ class ValSportsScraper:
                 # Extrair dados usando XPath para cada jogo individual (estrutura sequencial)
                 game_xpaths = []
                 
-                # Detectar quantos jogos existem de forma eficiente
-                game_xpaths = []
-                max_games_found = 0
+                # Usar abordagem robusta com CSS selectors e iteração dinâmica
+                logger.info("Iniciando captura robusta de jogos...")
                 
-                # Verificar até 15 jogos para detectar o padrão
-                for i in range(1, 16):
-                    try:
-                        xpath = f"//div[3]/div/div/div/div/div[{i}]"
-                        element = self.driver.find_element(By.XPATH, xpath)
-                        game_text = element.text.strip()
-                        logger.info(f"Verificando jogo {i}: '{game_text[:50]}...'")
-                        
-                        if game_text and len(game_text) > 10:
-                            max_games_found = i
-                        else:
-                            # Se encontrou elemento vazio, pode ser o fim
-                            logger.info(f"Jogo {i} vazio ou muito curto, parando busca")
-                            break
-                    except Exception as e:
-                        logger.info(f"Jogo {i} não encontrado: {str(e)}")
-                        break
-                
-                logger.info(f"Total de jogos detectados: {max_games_found}")
-                
-                # Criar XPaths apenas para os jogos que existem
-                for i in range(1, max_games_found + 1):
-                    game_xpaths.append(f"//div[3]/div/div/div/div/div[{i}]")
+                # Aguardar o container principal estar presente
+                wait = WebDriverWait(self.driver, 10)
+                try:
+                    bilhete_container = wait.until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, ".l-item"))
+                    )
+                    logger.info("Container do bilhete encontrado")
+                except Exception as e:
+                    logger.error(f"Container do bilhete não encontrado: {str(e)}")
+                    return None
                 
                 games_found = 0
+                # Encontrar todos os jogos usando CSS selector
+                jogos = self.driver.find_elements(By.CSS_SELECTOR, ".l-item")
+                logger.info(f"Encontrados {len(jogos)} jogos no bilhete")
+                
                 # Set para evitar duplicatas
                 processed_games = set()
                 
-                for i, xpath in enumerate(game_xpaths):
+                for i, jogo in enumerate(jogos):
                     try:
-                        # Usar WebDriverWait com timeout curto para evitar travamento
-                        game_element = WebDriverWait(self.driver, 1).until(
-                            EC.presence_of_element_located((By.XPATH, xpath))
-                        )
-                        game_text = game_element.text
+                        logger.info(f"Processando jogo {i+1}...")
                         
-                        if game_text.strip() and len(game_text.strip()) > 10:
-                            # Verificar se já processamos este jogo (evitar duplicatas)
-                            game_hash = hash(game_text.strip())
-                            if game_hash in processed_games:
-                                continue
+                        # Extrair dados de cada jogo
+                        try:
+                            liga = jogo.find_element(By.CSS_SELECTOR, ".l-item-emphasis").text.strip()
+                        except:
+                            liga = "Liga não encontrada"
                             
-                            processed_games.add(game_hash)
-                            games_found += 1
-                            logger.info(f"Jogo {games_found} - XPath: {xpath}")
-                            logger.info(f"Texto do jogo {games_found}: {game_text}")
-                            # Extrair liga
-                            league_match = re.search(r'([A-Za-z\s]+):\s*([A-Za-z\s]+)', game_text)
-                            if league_match:
-                                league = f"{league_match.group(1)}: {league_match.group(2)}"
-                                if league not in all_leagues:
-                                    all_leagues.append(league)
-                                    logger.info(f"Liga encontrada no jogo {games_found}: {league}")
+                        try:
+                            casa = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(4)").text.strip()
+                        except:
+                            casa = "Time casa não encontrado"
                             
-                            # Extrair data/hora
-                            datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', game_text)
-                            if datetime_match:
-                                datetime_str = datetime_match.group(0)
-                                if datetime_str not in all_datetimes:
-                                    all_datetimes.append(datetime_str)
-                                    logger.info(f"Data/hora encontrada no jogo {games_found}: {datetime_str}")
+                        try:
+                            fora = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(7)").text.strip()
+                        except:
+                            fora = "Time fora não encontrado"
                             
-                            # Extrair times (procurar por duas linhas consecutivas com nomes de times)
-                            game_lines = game_text.split('\n')
-                            team_lines = []
-                            for line in game_lines:
-                                line = line.strip()
-                                if (re.match(r'^[A-Za-zÀ-ÿ\s]+$', line) and 
-                                    len(line) > 2 and 
-                                    not re.search(r'\d', line) and
-                                    not re.search(r'[:\-]', line) and
-                                    not re.search(r'Vencedor', line) and
-                                    not re.search(r'Empate', line) and
-                                    not re.search(r'Costa Rica', line) and
-                                    not re.search(r'CONCACAF', line) and
-                                    not re.search(r'Inglaterra', line)):
-                                    team_lines.append(line)
+                        try:
+                            aposta = jogo.find_element(By.CSS_SELECTOR, ".col:nth-child(10)").text.strip()
+                        except:
+                            aposta = "Aposta não encontrada"
                             
-                            if len(team_lines) >= 2:
-                                team_pair = f"{team_lines[0]} x {team_lines[1]}"
-                                if team_pair not in all_teams:
-                                    all_teams.append(team_pair)
-                                    logger.info(f"Confronto encontrado no jogo {games_found}: {team_pair}")
+                        try:
+                            odd = jogo.find_element(By.CSS_SELECTOR, ".col-auto:nth-child(11)").text.strip()
+                        except:
+                            odd = "Odd não encontrada"
+                        
+                        # Criar hash único para evitar duplicatas
+                        game_hash = hash(f"{liga}{casa}{fora}{aposta}{odd}")
+                        if game_hash in processed_games:
+                            logger.info(f"Jogo {i+1} duplicado, pulando...")
+                            continue
                             
-                            # Extrair seleção
-                            selection_match = re.search(r'Vencedor:\s*([A-Za-z\s]+)', game_text)
-                            if selection_match:
-                                selection = f"Vencedor: {selection_match.group(1).strip()}"
-                                if selection not in all_selections:
-                                    all_selections.append(selection)
-                                    logger.info(f"Seleção encontrada no jogo {games_found}: {selection}")
-                            elif 'Empate' in game_text:
-                                if 'Empate' not in all_selections:
-                                    all_selections.append('Empate')
-                                    logger.info(f"Seleção encontrada no jogo {games_found}: Empate")
+                        processed_games.add(game_hash)
+                        games_found += 1
+                        
+                        logger.info(f"Jogo {games_found}: {liga} - {casa} x {fora} - {aposta} ({odd})")
+                        
+                        # Adicionar aos arrays
+                        all_leagues.append(liga)
+                        all_teams.append(f"{casa} x {fora}")
+                        all_selections.append(aposta)
+                        all_odds.append(odd)
+                        
+                        # Tentar extrair data/hora (pode estar em outro lugar)
+                        try:
+                            datetime_element = jogo.find_element(By.CSS_SELECTOR, "[class*='date'], [class*='time']")
+                            datetime_text = datetime_element.text.strip()
+                            if datetime_text:
+                                all_datetimes.append(datetime_text)
+                            else:
+                                all_datetimes.append("Data/Hora não encontrada")
+                        except:
+                            all_datetimes.append("Data/Hora não encontrada")
                             
-                            # Se não encontrou seleção específica, verificar se há apenas "Empate" na linha
-                            if not selection_match and 'Empate' in game_text and 'Vencedor' not in game_text:
-                                if 'Empate' not in all_selections:
-                                    all_selections.append('Empate')
-                                    logger.info(f"Seleção encontrada no jogo {games_found}: Empate (linha única)")
-                            
-                            # Extrair odds
-                            odds_match = re.search(r'\b\d+\.\d+\b', game_text)
-                            if odds_match:
-                                odds = odds_match.group(0)
-                                if odds not in all_odds:
-                                    all_odds.append(odds)
-                                    logger.info(f"Odds encontrada no jogo {games_found}: {odds}")
-                    
                     except Exception as e:
-                        logger.warning(f"Erro ao extrair jogo com XPath {xpath}: {str(e)}")
+                        logger.error(f"Erro ao processar jogo {i+1}: {str(e)}")
                         continue
                 
                 # Log do resultado final
