@@ -1,107 +1,108 @@
-# Deploy no EasyPanel - Upload de Arquivos
+# 🚀 Guia de Deploy no EasyPanel - ValSports Scraper
 
-## 📦 **Passo a Passo para Deploy**
+## 📋 Configuração via GitHub
 
-### 1. **Preparação dos Arquivos**
-✅ **Arquivo ZIP criado**: `valsports-scraper.zip` (35.7 KB)
-✅ **Contém todos os arquivos necessários**
+### **1. Configurações Básicas**
+- **Tipo**: `GitHub Repository`
+- **Repository**: Seu repositório GitHub
+- **Branch**: `main`
+- **Root Directory**: `/` (raiz do projeto)
 
-### 2. **No EasyPanel**
-
-#### **A) Criar Novo Projeto**
-1. Acesse o EasyPanel
-2. Clique em **"Novo Projeto"**
-3. Selecione **"Upload de Arquivos"**
-4. Nome do projeto: `valsports`
-
-#### **B) Upload do Arquivo**
-1. Clique em **"Escolher Arquivo"**
-2. Selecione: `valsports-scraper.zip`
-3. Aguarde o upload completar
-
-#### **C) Configuração do Docker**
-1. **Tipo**: `Dockerfile`
-2. **Porta**: `5000`
-3. **Build Command**: (deixar padrão)
-4. **Start Command**: (deixar padrão)
-
-### 3. **Variáveis de Ambiente**
-
-Configure as seguintes variáveis:
-
+### **2. Build Settings**
 ```bash
-# Configurações do ValSports
-VALSORTS_USERNAME=cairovinicius
-VALSORTS_PASSWORD=279999
+# Build Command (deixe vazio para usar Dockerfile padrão)
+# O EasyPanel detectará automaticamente o Dockerfile
 
-# Configurações do Servidor
-PORT=5000
-DEBUG=false
-LOG_LEVEL=INFO
-
-# Configurações do Selenium
-HEADLESS=true
-BROWSER_TIMEOUT=30
-PAGE_LOAD_TIMEOUT=20
+# Start Command (opcional - o Dockerfile já define)
+gunicorn --bind 0.0.0.0:5000 --workers 1 --timeout 300 app:app
 ```
 
-### 4. **Configuração de Domínio**
-
-- **Domínio**: `valsports.qobebrasil.com.br`
-- **SSL**: Ativar (se disponível)
-- **Proxy**: Configurar para porta 5000
-
-### 5. **Deploy**
-
-1. Clique em **"Deploy"**
-2. Aguarde o build completar
-3. Verifique os logs de build
-
-### 6. **Teste da Aplicação**
-
-Após o deploy bem-sucedido:
-
+### **3. Environment Variables**
 ```bash
-# Teste de saúde
-curl https://valsports.qobebrasil.com.br/health
+VALSORTS_USERNAME=cairovinicius
+VALSORTS_PASSWORD=279999
+PORT=5000
+DEBUG=false
+HEADLESS=true
+LOG_LEVEL=INFO
+```
 
-# Teste de captura de dados
+### **4. Port Configuration**
+- **Container Port**: `5000`
+- **Host Port**: `5000` (ou deixar automático)
+
+### **5. Domínios Configurados**
+- ✅ `https://valsports.qobebrasil.com.br/`
+- ✅ `https://www.valsports.qobebrasil.com.br/`
+
+## 🔧 Troubleshooting
+
+### **Problema: Serviço para logo após iniciar**
+**Solução**: Verificar se o Dockerfile está correto e se todas as dependências estão instaladas.
+
+### **Problema: Erro 504 Gateway Timeout**
+**Solução**: 
+1. Verificar se o container está rodando
+2. Verificar logs do container
+3. Verificar configuração de portas
+
+### **Problema: ModuleNotFoundError**
+**Solução**: Garantir que o `requirements.txt` está sendo instalado corretamente.
+
+## 📝 Logs de Debug
+
+### **Verificar logs do container:**
+```bash
+# No EasyPanel, vá em "Logs" para ver os logs em tempo real
+```
+
+### **Teste local da imagem:**
+```bash
+docker run --rm -p 5000:5000 \
+  -e VALSORTS_USERNAME=cairovinicius \
+  -e VALSORTS_PASSWORD=279999 \
+  -e PORT=5000 \
+  -e DEBUG=false \
+  -e HEADLESS=true \
+  c4st4nha/valsports-scraper:latest
+```
+
+## 🎯 Testes Pós-Deploy
+
+### **1. Teste de Saúde**
+```bash
+curl https://valsports.qobebrasil.com.br/health
+```
+
+### **2. Teste de Captura de Dados**
+```bash
 curl -X POST https://valsports.qobebrasil.com.br/api/scrape-bet \
   -H "Content-Type: application/json" \
   -d '{"bet_code": "dmgkrn"}'
 ```
 
-## 🔧 **Troubleshooting**
+### **3. Teste de Confirmação**
+```bash
+curl -X POST https://valsports.qobebrasil.com.br/api/confirm-bet \
+  -H "Content-Type: application/json" \
+  -d '{"bet_code": "dmgkrn"}'
+```
 
-### **Se o build falhar:**
-1. Verifique os logs de build
-2. Confirme que o Dockerfile está correto
-3. Verifique se todas as dependências estão no requirements.txt
+## ✅ Checklist de Deploy
 
-### **Se a aplicação não responder:**
-1. Verifique os logs da aplicação
-2. Confirme as variáveis de ambiente
-3. Teste localmente primeiro
+- [ ] Repositório GitHub atualizado
+- [ ] Dockerfile correto no repositório
+- [ ] requirements.txt atualizado
+- [ ] Environment variables configuradas
+- [ ] Portas configuradas corretamente
+- [ ] Domínios configurados
+- [ ] Deploy executado com sucesso
+- [ ] Testes de API funcionando
 
-### **Se der erro 502:**
-1. Verifique se a porta está correta
-2. Confirme se o domínio está configurado
-3. Verifique os logs de proxy/reverse proxy
+## 🆘 Suporte
 
-## 📋 **Arquivos Incluídos no ZIP**
-
-- ✅ `Dockerfile` - Configuração do container
-- ✅ `requirements.txt` - Dependências Python
-- ✅ `app.py` - Aplicação Flask
-- ✅ `scraper/` - Módulo de scraping
-- ✅ `README.md` - Documentação
-- ✅ `n8n_integration.md` - Integração n8n
-- ✅ Scripts de teste e debug
-
-## 🚀 **Vantagens desta Abordagem**
-
-1. **Controle total** sobre o código
-2. **Debug mais fácil** - logs locais
-3. **Atualizações simples** - novo ZIP
-4. **Sem dependência** de registros externos
-5. **Build personalizado** para o ambiente
+Se houver problemas:
+1. Verificar logs no EasyPanel
+2. Testar imagem localmente
+3. Verificar configurações de rede/porta
+4. Verificar se todas as dependências estão instaladas
