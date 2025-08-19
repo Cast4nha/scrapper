@@ -280,17 +280,25 @@ class ValSportsScraper:
                 game_xpaths = []
                 max_games_found = 0
                 
-                # Verificar apenas os primeiros 10 jogos para detectar o padrão
-                for i in range(1, 11):
+                # Verificar até 15 jogos para detectar o padrão
+                for i in range(1, 16):
                     try:
                         xpath = f"//div[3]/div/div/div/div/div[{i}]"
                         element = self.driver.find_element(By.XPATH, xpath)
-                        if element.text.strip() and len(element.text.strip()) > 10:
+                        game_text = element.text.strip()
+                        logger.info(f"Verificando jogo {i}: '{game_text[:50]}...'")
+                        
+                        if game_text and len(game_text) > 10:
                             max_games_found = i
-                    except:
+                        else:
+                            # Se encontrou elemento vazio, pode ser o fim
+                            logger.info(f"Jogo {i} vazio ou muito curto, parando busca")
+                            break
+                    except Exception as e:
+                        logger.info(f"Jogo {i} não encontrado: {str(e)}")
                         break
                 
-                logger.info(f"Jogos detectados: {max_games_found}")
+                logger.info(f"Total de jogos detectados: {max_games_found}")
                 
                 # Criar XPaths apenas para os jogos que existem
                 for i in range(1, max_games_found + 1):
