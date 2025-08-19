@@ -33,13 +33,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copiar código da aplicação
 COPY . .
 
-# Criar usuário não-root para segurança
-RUN useradd --create-home --shell /bin/bash appuser && \
-    chown -R appuser:appuser /app
-USER appuser
-
 # Expor porta
 EXPOSE 5000
 
-# Comando para executar a aplicação
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "300", "--keep-alive", "2", "app:app"]
+# Comando para executar a aplicação (mais simples)
+CMD ["python", "app.py"]
