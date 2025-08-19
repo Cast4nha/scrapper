@@ -1,5 +1,19 @@
-# Usar imagem base do Python (sem instalar nada adicional)
+# Usar imagem base do Python
 FROM python:3.9-slim
+
+# Instalar dependências do sistema
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    firefox-esr \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instalar GeckoDriver para Firefox
+RUN wget -q https://github.com/mozilla/geckodriver/releases/download/v0.33.0/geckodriver-v0.33.0-linux64.tar.gz \
+    && tar -xzf geckodriver-v0.33.0-linux64.tar.gz \
+    && mv geckodriver /usr/local/bin/ \
+    && chmod +x /usr/local/bin/geckodriver \
+    && rm geckodriver-v0.33.0-linux64.tar.gz
 
 # Definir diretório de trabalho
 WORKDIR /app
@@ -7,12 +21,11 @@ WORKDIR /app
 # Copiar arquivos de dependências
 COPY requirements.txt .
 
-# Instalar apenas dependências Python essenciais
-RUN pip install --no-cache-dir flask flask-cors gunicorn python-dotenv
+# Instalar dependências Python completas
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar código da aplicação
-COPY app.py .
-COPY scraper/ ./scraper/
+COPY . .
 
 # Expor porta
 EXPOSE 5000
