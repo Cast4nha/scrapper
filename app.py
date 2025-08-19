@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 from scraper.valsports_scraper import ValSportsScraper
 import logging
+import time
+import threading
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -16,6 +18,42 @@ app = Flask(__name__)
 
 # Configuração de CORS
 CORS(app)
+
+# Cache global do scraper para reutilização
+scraper_cache = None
+scraper_lock = threading.Lock()
+last_used_time = 0
+CACHE_TIMEOUT = 300  # 5 minutos
+
+def get_scraper():
+    """Singleton otimizado para o scraper com cache de sessão"""
+    global scraper_cache, last_used_time
+    
+    with scraper_lock:
+        current_time = time.time()
+        
+        # Se o cache expirou ou não existe, criar novo
+        if (scraper_cache is None or 
+            current_time - last_used_time > CACHE_TIMEOUT):
+            
+            logger.info("Criando nova instância do scraper")
+            
+            # Fechar instância anterior se existir
+            if scraper_cache:
+                try:
+                    scraper_cache.close()
+                except:
+                    pass
+            
+            # Criar nova instância
+            scraper_cache = ValSportsScraper()
+            last_used_time = current_time
+            
+            logger.info("Nova instância do scraper criada")
+        else:
+            logger.info("Reutilizando instância do scraper em cache")
+        
+        return scraper_cache
 
 # Tratamento de erros global
 @app.errorhandler(Exception)
@@ -35,16 +73,6 @@ def not_found(e):
         'message': 'Endpoint não encontrado',
         'status': 'error'
     }), 404
-
-# Inicializar o scraper
-scraper = None
-
-def get_scraper():
-    """Singleton para o scraper"""
-    global scraper
-    if scraper is None:
-        scraper = ValSportsScraper()
-    return scraper
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -99,25 +127,27 @@ def scrape_bet():
             }), 400
         
         bet_code = data['bet_code']
-        logger.info(f"Recebida requisição para capturar bilhete: {bet_code}")
         
-        # Obter instância do scraper
+        logger.info(f"Capturando bilhete: {bet_code}")
+        
+        # Obter instância do scraper (com cache)
         scraper_instance = get_scraper()
         
         # Capturar dados do bilhete
         bet_data = scraper_instance.scrape_bet_ticket(bet_code)
         
-        if bet_data:
-            return jsonify({
-                'success': True,
-                'data': bet_data
-            })
-        else:
+        if not bet_data:
             return jsonify({
                 'success': False,
-                'error': 'Não foi possível capturar os dados do bilhete'
+                'error': 'Não foi possível capturar dados do bilhete'
             }), 404
-            
+        
+        return jsonify({
+            'success': True,
+            'data': bet_data,
+            'bet_code': bet_code
+        })
+        
     except Exception as e:
         logger.error(f"Erro ao capturar bilhete: {str(e)}")
         return jsonify({
@@ -142,7 +172,7 @@ def login():
         
         logger.info(f"Tentativa de login para usuário: {username}")
         
-        # Obter instância do scraper
+        # Obter instância do scraper (com cache)
         scraper_instance = get_scraper()
         
         # Fazer login
@@ -182,7 +212,7 @@ def confirm_bet():
         
         logger.info(f"Confirmando aposta: {bet_code}")
         
-        # Obter instância do scraper
+        # Obter instância do scraper (com cache)
         scraper_instance = get_scraper()
         
         # Confirmar aposta
@@ -212,6 +242,7 @@ def confirm_bet():
 def capture_bet():
     """Endpoint otimizado: Login + Captura em uma única operação"""
     try:
+        start_time = time.time()
         data = request.get_json()
         
         if not data or 'bet_code' not in data:
@@ -228,19 +259,22 @@ def capture_bet():
         username = os.environ.get('VALSORTS_USERNAME', 'cairovinicius')
         password = os.environ.get('VALSORTS_PASSWORD', '279999')
         
-        # Obter instância do scraper
+        # Obter instância do scraper (com cache otimizado)
         scraper_instance = get_scraper()
         
-        # Fazer login automático
-        logger.info(f"Fazendo login para usuário: {username}")
-        login_success = scraper_instance.login(username, password)
-        
-        if not login_success:
-            logger.error("Falha no login")
-            return jsonify({
-                'status': 'error',
-                'message': 'Falha no login - credenciais inválidas'
-            }), 401
+        # Fazer login automático (se necessário)
+        if not scraper_instance.is_logged_in:
+            logger.info(f"Fazendo login para usuário: {username}")
+            login_success = scraper_instance.login(username, password)
+            
+            if not login_success:
+                logger.error("Falha no login")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Falha no login - credenciais inválidas'
+                }), 401
+        else:
+            logger.info("Usando sessão existente")
         
         # Capturar dados do bilhete
         logger.info(f"Capturando dados do bilhete: {bet_code}")
@@ -253,12 +287,15 @@ def capture_bet():
                 'message': 'Falha ao capturar dados do bilhete'
             }), 404
         
-        logger.info(f"Dados capturados com sucesso para bilhete: {bet_code}")
+        execution_time = time.time() - start_time
+        logger.info(f"Dados capturados com sucesso para bilhete: {bet_code} em {execution_time:.2f}s")
+        
         return jsonify({
             'status': 'success',
             'bet_code': bet_code,
             'data': bet_data,
-            'message': 'Dados capturados com sucesso'
+            'message': 'Dados capturados com sucesso',
+            'execution_time': f"{execution_time:.2f}s"
         })
         
     except Exception as e:

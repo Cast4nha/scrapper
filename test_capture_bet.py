@@ -2,6 +2,7 @@
 """
 Script de teste para o endpoint otimizado /api/capture-bet
 Testa o novo endpoint que faz login + captura em uma única operação
+Com otimizações de cache e performance
 """
 
 import requests
@@ -12,7 +13,7 @@ import time
 API_BASE_URL = "https://valsports.qobebrasil.com.br"
 ENDPOINT = "/api/capture-bet"
 
-def test_capture_bet(bet_code):
+def test_capture_bet(bet_code, test_number=1):
     """Testa o endpoint otimizado de captura de bilhete"""
     
     url = f"{API_BASE_URL}{ENDPOINT}"
@@ -26,7 +27,7 @@ def test_capture_bet(bet_code):
         "Content-Type": "application/json"
     }
     
-    print(f"🔍 Testando captura do bilhete: {bet_code}")
+    print(f"🔍 Teste #{test_number} - Captura do bilhete: {bet_code}")
     print(f"📡 URL: {url}")
     print(f"📦 Payload: {json.dumps(payload, indent=2)}")
     print("-" * 50)
@@ -49,6 +50,10 @@ def test_capture_bet(bet_code):
             print("✅ SUCESSO!")
             print(f"📋 Status: {data.get('status')}")
             print(f"💬 Mensagem: {data.get('message')}")
+            
+            # Mostrar tempo de execução da API se disponível
+            if 'execution_time' in data:
+                print(f"⚡ Tempo da API: {data.get('execution_time')}")
             
             if 'data' in data:
                 bet_data = data['data']
@@ -79,19 +84,69 @@ def test_capture_bet(bet_code):
         print(f"💥 ERRO INESPERADO: {str(e)}")
     
     print("=" * 60)
+    return execution_time
+
+def test_cache_performance():
+    """Testa a performance do cache fazendo múltiplas requisições"""
+    print("🚀 TESTE DE PERFORMANCE DO CACHE")
+    print("=" * 60)
+    
+    bet_code = "dmgkrn"
+    times = []
+    
+    # Primeira requisição (criação da sessão)
+    print("🔄 Primeira requisição (criação da sessão):")
+    time1 = test_capture_bet(bet_code, 1)
+    times.append(time1)
+    
+    # Aguardar um pouco
+    print("⏳ Aguardando 2 segundos...")
+    time.sleep(2)
+    
+    # Segunda requisição (reutilização da sessão)
+    print("🔄 Segunda requisição (reutilização da sessão):")
+    time2 = test_capture_bet(bet_code, 2)
+    times.append(time2)
+    
+    # Terceira requisição (reutilização da sessão)
+    print("🔄 Terceira requisição (reutilização da sessão):")
+    time3 = test_capture_bet(bet_code, 3)
+    times.append(time3)
+    
+    # Análise de performance
+    print("📊 ANÁLISE DE PERFORMANCE:")
+    print(f"   ⏱️  Primeira requisição: {times[0]:.2f}s")
+    print(f"   ⚡ Segunda requisição: {times[1]:.2f}s")
+    print(f"   ⚡ Terceira requisição: {times[2]:.2f}s")
+    
+    if len(times) >= 2:
+        improvement = ((times[0] - times[1]) / times[0]) * 100
+        print(f"   🎯 Melhoria na segunda requisição: {improvement:.1f}%")
+    
+    if len(times) >= 3:
+        avg_cache_time = (times[1] + times[2]) / 2
+        total_improvement = ((times[0] - avg_cache_time) / times[0]) * 100
+        print(f"   🚀 Melhoria média com cache: {total_improvement:.1f}%")
 
 def main():
     """Função principal"""
     print("🚀 TESTE DO ENDPOINT OTIMIZADO - CAPTURE BET")
     print("=" * 60)
     
+    # Teste de performance do cache
+    test_cache_performance()
+    
+    print("\n" + "=" * 60)
+    print("🧪 TESTES ADICIONAIS")
+    print("=" * 60)
+    
     # Teste com bilhete válido
-    test_capture_bet("dmgkrn")
+    test_capture_bet("dmgkrn", 4)
     
     # Teste com bilhete inválido
-    test_capture_bet("invalid_code")
+    test_capture_bet("invalid_code", 5)
     
-    print("✅ Testes concluídos!")
+    print("✅ Todos os testes concluídos!")
 
 if __name__ == "__main__":
     main()
