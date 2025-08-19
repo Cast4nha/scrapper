@@ -278,13 +278,17 @@ class ValSportsScraper:
                 
                 # Baseado no XPath do jogo 15: //div[3]/div/div/div/div/div[15]
                 # A estrutura é sequencial: div[1], div[2], div[3], ..., div[15]
-                for i in range(1, 16):  # Jogos 1 a 15
+                # Limitar a 10 jogos para evitar timeout
+                for i in range(1, 11):  # Jogos 1 a 10 (otimizado)
                     game_xpaths.append(f"//div[3]/div/div/div/div/div[{i}]")
                 
                 games_found = 0
                 for i, xpath in enumerate(game_xpaths):
                     try:
-                        game_element = self.driver.find_element(By.XPATH, xpath)
+                        # Usar WebDriverWait com timeout curto para cada XPath
+                        game_element = WebDriverWait(self.driver, 2).until(
+                            EC.presence_of_element_located((By.XPATH, xpath))
+                        )
                         game_text = game_element.text
                         
                         if game_text.strip() and len(game_text.strip()) > 10:  # Verificar se tem conteúdo válido
