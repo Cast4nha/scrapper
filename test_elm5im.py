@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-Script de teste para o endpoint otimizado /api/capture-bet
-Testa o novo endpoint que faz login + captura em uma única operação
-Com otimizações de cache e performance
+Teste específico para o bilhete ELM5IM
 """
 
 import requests
@@ -13,21 +11,21 @@ import time
 API_BASE_URL = "https://valsports.qobebrasil.com.br"
 ENDPOINT = "/api/capture-bet"
 
-def test_capture_bet(bet_code, test_number=1):
-    """Testa o endpoint otimizado de captura de bilhete"""
+def test_elm5im():
+    """Testa especificamente o bilhete ELM5IM"""
     
     url = f"{API_BASE_URL}{ENDPOINT}"
     
     # Dados da requisição
     payload = {
-        "bet_code": bet_code
+        "bet_code": "ELM5IM"
     }
     
     headers = {
         "Content-Type": "application/json"
     }
     
-    print(f"🔍 Teste #{test_number} - Captura do bilhete: {bet_code}")
+    print(f"🧪 TESTE ESPECÍFICO - BILHETE ELM5IM")
     print(f"📡 URL: {url}")
     print(f"📦 Payload: {json.dumps(payload, indent=2)}")
     print("-" * 50)
@@ -77,6 +75,22 @@ def test_capture_bet(bet_code, test_number=1):
                     print(f"   🎯 Seleções: {all_games.get('selections', [])}")
                     print(f"   📅 Datas/Horas: {all_games.get('datetimes', [])}")
                     print(f"   📈 Odds: {all_games.get('odds', [])}")
+                    
+                    # Análise específica do bilhete ELM5IM
+                    odds_list = all_games.get('odds', [])
+                    print(f"\n🔍 ANÁLISE DO BILHETE ELM5IM:")
+                    print(f"   📈 Número de odds encontradas: {len(odds_list)}")
+                    if len(odds_list) == 5:
+                        print("   ✅ CORRETO! Encontrou 5 odds como esperado")
+                    else:
+                        print(f"   ❌ ERRO! Esperado: 5 odds, Encontrado: {len(odds_list)}")
+                    
+                    teams_list = all_games.get('teams', [])
+                    print(f"   ⚽ Número de times encontrados: {len(teams_list)}")
+                    if len(teams_list) == 5:
+                        print("   ✅ CORRETO! Encontrou 5 confrontos como esperado")
+                    else:
+                        print(f"   ❌ ERRO! Esperado: 5 confrontos, Encontrado: {len(teams_list)}")
                 else:
                     print(f"\n❌ Campo 'all_games' não encontrado!")
         else:
@@ -96,80 +110,6 @@ def test_capture_bet(bet_code, test_number=1):
         print(f"💥 ERRO INESPERADO: {str(e)}")
     
     print("=" * 60)
-    return execution_time
-
-def test_cache_performance():
-    """Testa a performance do cache fazendo múltiplas requisições"""
-    print("🚀 TESTE DE PERFORMANCE DO CACHE")
-    print("=" * 60)
-    
-    bet_code = "dmgkrn"
-    times = []
-    
-    # Primeira requisição (criação da sessão)
-    print("🔄 Primeira requisição (criação da sessão):")
-    time1 = test_capture_bet(bet_code, 1)
-    times.append(time1)
-    
-    # Aguardar um pouco
-    print("⏳ Aguardando 2 segundos...")
-    time.sleep(2)
-    
-    # Segunda requisição (reutilização da sessão)
-    print("🔄 Segunda requisição (reutilização da sessão):")
-    time2 = test_capture_bet(bet_code, 2)
-    times.append(time2)
-    
-    # Terceira requisição (reutilização da sessão)
-    print("🔄 Terceira requisição (reutilização da sessão):")
-    time3 = test_capture_bet(bet_code, 3)
-    times.append(time3)
-    
-    # Análise de performance
-    print("📊 ANÁLISE DE PERFORMANCE:")
-    print(f"   ⏱️  Primeira requisição: {times[0]:.2f}s")
-    print(f"   ⚡ Segunda requisição: {times[1]:.2f}s")
-    print(f"   ⚡ Terceira requisição: {times[2]:.2f}s")
-    
-    if len(times) >= 2:
-        improvement = ((times[0] - times[1]) / times[0]) * 100
-        print(f"   🎯 Melhoria na segunda requisição: {improvement:.1f}%")
-    
-    if len(times) >= 3:
-        avg_cache_time = (times[1] + times[2]) / 2
-        total_improvement = ((times[0] - avg_cache_time) / times[0]) * 100
-        print(f"   🚀 Melhoria média com cache: {total_improvement:.1f}%")
-
-def main():
-    """Função principal"""
-    print("🚀 TESTE DO ENDPOINT OTIMIZADO - CAPTURE BET")
-    print("=" * 60)
-    
-    # Teste específico com o bilhete z1iym4
-    print("🧪 TESTE ESPECÍFICO - BILHETE z1iym4")
-    print("=" * 60)
-    test_capture_bet("z1iym4", 1)
-    
-    # Teste específico com bilhete de 5 jogos (se tiver o código)
-    print("🧪 TESTE ESPECÍFICO - BILHETE COM 5 JOGOS")
-    print("=" * 60)
-    # Substitua "CODIGO_5_JOGOS" pelo código real do bilhete com 5 jogos
-    test_capture_bet("ELM5IM", 2)
-    
-    # Teste de performance do cache
-    test_cache_performance()
-    
-    print("\n" + "=" * 60)
-    print("🧪 TESTES ADICIONAIS")
-    print("=" * 60)
-    
-    # Teste com bilhete válido
-    test_capture_bet("dmgkrn", 3)
-    
-    # Teste com bilhete inválido
-    test_capture_bet("invalid_code", 4)
-    
-    print("✅ Todos os testes concluídos!")
 
 if __name__ == "__main__":
-    main()
+    test_elm5im()

@@ -271,7 +271,10 @@ class ValSportsScraper:
                 known_teams = [
                     'Vélez Sarsfield', 'Fortaleza EC', 'São Paulo', 'Atlético Nacional',
                     'Racing Club', 'Peñarol', 'Huracán', 'Once Caldas',
-                    'Mushuc Runa', 'Independiente del Valle', 'Fluminense', 'America de Cali'
+                    'Mushuc Runa', 'Independiente del Valle', 'Fluminense', 'America de Cali',
+                    'CS Uruguay de Coronado', 'Sporting San José', 'Deportivo Saprissa',
+                    'Municipal Grecia', 'Herediano', 'Santos de Guápiles',
+                    'Alajuelense', 'Cartaginés', 'Puntarenas', 'Limón'
                 ]
                 
                 # Buscar padrões de times no texto
@@ -335,7 +338,12 @@ class ValSportsScraper:
                 known_selections = [
                     'Vencedor: Vélez Sarsfield', 'Vencedor: Atlético Nacional',
                     'Vencedor: Peñarol', 'Vencedor: Once Caldas',
-                    'Vencedor: America de Cali', 'Empate'
+                    'Vencedor: America de Cali', 'Vencedor: CS Uruguay de Coronado',
+                    'Vencedor: Sporting San José', 'Vencedor: Deportivo Saprissa',
+                    'Vencedor: Municipal Grecia', 'Vencedor: Herediano',
+                    'Vencedor: Santos de Guápiles', 'Vencedor: Alajuelense',
+                    'Vencedor: Cartaginés', 'Vencedor: Puntarenas', 'Vencedor: Limón',
+                    'Empate'
                 ]
                 
                 for selection in known_selections:
