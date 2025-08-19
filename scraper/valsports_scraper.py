@@ -273,71 +273,67 @@ class ValSportsScraper:
                 odds_matches = re.findall(r'\b\d+\.\d+\b', ticket_full_text)
                 all_odds = list(set(odds_matches))  # Remove duplicatas
                 
-                # Extrair dados por seções (cada jogo)
+                # Extrair dados linha por linha
                 lines = ticket_full_text.split('\n')
-                current_section = []
-                sections = []
-                
-                for line in lines:
-                    line = line.strip()
-                    if line:
-                        current_section.append(line)
-                    elif current_section:
-                        sections.append(current_section)
-                        current_section = []
-                
-                if current_section:
-                    sections.append(current_section)
-                
-                # Processar cada seção para extrair dados dos jogos
-                for section in sections:
-                    section_text = '\n'.join(section)
+                i = 0
+                while i < len(lines):
+                    line = lines[i].strip()
                     
-                    # Extrair liga da seção
-                    league_match = re.search(r'([A-Za-z\s]+):\s*([A-Za-z\s]+)', section_text)
+                    # Verificar se é uma liga
+                    league_match = re.search(r'([A-Za-z\s]+):\s*([A-Za-z\s]+)', line)
                     if league_match:
                         league = f"{league_match.group(1)}: {league_match.group(2)}"
                         if league not in all_leagues:
                             all_leagues.append(league)
                     
-                    # Extrair data/hora
-                    datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', section_text)
+                    # Verificar se é uma data/hora
+                    datetime_match = re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', line)
                     if datetime_match:
                         datetime_str = datetime_match.group(0)
                         if datetime_str not in all_datetimes:
                             all_datetimes.append(datetime_str)
                     
-                    # Extrair times (procurar por duas linhas consecutivas com nomes de times)
-                    team_lines = []
-                    for line in section:
-                        # Verificar se é uma linha que parece nome de time (apenas letras, espaços e caracteres especiais)
-                        if (re.match(r'^[A-Za-zÀ-ÿ\s]+$', line) and 
-                            len(line.strip()) > 2 and 
-                            not re.search(r'\d', line) and  # Não contém números
-                            not re.search(r'[:\-]', line)):  # Não contém : ou -
-                            team_lines.append(line.strip())
+                    # Verificar se é um nome de time (linha com apenas letras e espaços)
+                    if (re.match(r'^[A-Za-zÀ-ÿ\s]+$', line) and 
+                        len(line) > 2 and 
+                        not re.search(r'\d', line) and  # Não contém números
+                        not re.search(r'[:\-]', line) and  # Não contém : ou -
+                        not re.search(r'Vencedor', line) and  # Não é uma seleção
+                        not re.search(r'Empate', line)):  # Não é empate
+                        
+                        # Verificar se a próxima linha também é um nome de time
+                        if i + 1 < len(lines):
+                            next_line = lines[i + 1].strip()
+                            if (re.match(r'^[A-Za-zÀ-ÿ\s]+$', next_line) and 
+                                len(next_line) > 2 and 
+                                not re.search(r'\d', next_line) and
+                                not re.search(r'[:\-]', next_line) and
+                                not re.search(r'Vencedor', next_line) and
+                                not re.search(r'Empate', next_line)):
+                                
+                                team_pair = f"{line} x {next_line}"
+                                if team_pair not in all_teams:
+                                    all_teams.append(team_pair)
+                                i += 1  # Pular a próxima linha
                     
-                    if len(team_lines) >= 2:
-                        team_pair = f"{team_lines[0]} x {team_lines[1]}"
-                        if team_pair not in all_teams:
-                            all_teams.append(team_pair)
-                    
-                    # Extrair seleção
-                    selection_match = re.search(r'Vencedor:\s*([A-Za-z\s]+)', section_text)
+                    # Verificar se é uma seleção
+                    selection_match = re.search(r'Vencedor:\s*([A-Za-z\s]+)', line)
                     if selection_match:
                         selection = f"Vencedor: {selection_match.group(1).strip()}"
                         if selection not in all_selections:
                             all_selections.append(selection)
-                    elif 'Empate' in section_text:
+                    elif 'Empate' in line:
                         if 'Empate' not in all_selections:
                             all_selections.append('Empate')
                     
-                    # Extrair odds
-                    odds_match = re.search(r'\b\d+\.\d+\b', section_text)
+                    # Verificar se é uma odds
+                    odds_match = re.search(r'\b\d+\.\d+\b', line)
                     if odds_match:
                         odds = odds_match.group(0)
                         if odds not in all_odds:
                             all_odds.append(odds)
+                    
+                    i += 1
                 
                 # Buscar seleções específicas conhecidas
                 known_selections = [
