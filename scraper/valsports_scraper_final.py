@@ -416,7 +416,11 @@ class ValSportsScraper:
                     full_text = game_element.text
                     
                     # Verificar se tem dados essenciais antes de processar
-                    if not any(keyword in full_text for keyword in ['Vencedor:', 'Empate']) or not re.search(r'\b\d+\.\d+\b', full_text):
+                    # Procurar por qualquer tipo de seleção (Vencedor, Empate, Ambas equipes marcam, etc.)
+                    has_selection = any(keyword in full_text for keyword in ['Vencedor:', 'Empate', 'Ambas equipes marcam', 'Mais de', 'Menos de', 'Gols', 'Corner', 'Cartão'])
+                    has_odds = bool(re.search(r'\b\d+\.\d+\b', full_text))
+                    
+                    if not has_selection or not has_odds:
                         continue
                     
                     logger.info(f"🎮 Processando jogo {i}...")
@@ -459,6 +463,14 @@ class ValSportsScraper:
                         if selection_elements:
                             game_data['selection'] = selection_elements[0].text.strip()
                             logger.info(f"   Seleção: {game_data['selection']}")
+                        else:
+                            # Tentar extrair seleção do texto completo se não encontrar o elemento
+                            lines = full_text.split('\n')
+                            for line in lines:
+                                if any(keyword in line for keyword in ['Vencedor:', 'Empate', 'Ambas equipes marcam', 'Mais de', 'Menos de', 'Gols', 'Corner', 'Cartão']):
+                                    game_data['selection'] = line.strip()
+                                    logger.info(f"   Seleção (texto): {game_data['selection']}")
+                                    break
                     except Exception as e:
                         pass  # Silenciar erro
                     
