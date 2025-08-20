@@ -219,14 +219,18 @@ class ValSportsScraper:
             except Exception as e:
                 logger.warning(f"⚠️ Erro ao extrair possível prêmio: {str(e)}")
             
-            # 4. Extrair nome do apostador e valor - usar seletor específico
+            # 4. Extrair nome do apostador e valor - usar placeholders específicos
             try:
-                bettor_inputs = self.driver.find_elements(By.CSS_SELECTOR, "input.form-control.form-sm.form-bg[type='text']")
-                if len(bettor_inputs) >= 1:
-                    bet_data['bettor_name'] = bettor_inputs[0].get_attribute("value")
+                # Procurar por placeholder "Apostador"
+                apostador_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'Apostador')]")
+                if apostador_inputs:
+                    bet_data['bettor_name'] = apostador_inputs[0].get_attribute("value")
                     logger.info(f"👤 Apostador: {bet_data['bettor_name']}")
-                if len(bettor_inputs) >= 2:
-                    bet_data['bet_value'] = bettor_inputs[1].get_attribute("value")
+                
+                # Procurar por placeholder "Valor"
+                valor_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'Valor')]")
+                if valor_inputs:
+                    bet_data['bet_value'] = valor_inputs[0].get_attribute("value")
                     logger.info(f"💵 Valor: {bet_data['bet_value']}")
             except Exception as e:
                 logger.warning(f"⚠️ Erro ao extrair campos do apostador: {str(e)}")
