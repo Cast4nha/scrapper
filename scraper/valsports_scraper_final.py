@@ -428,12 +428,11 @@ class ValSportsScraper:
                     
                     # Verificar se é um novo jogo (tem liga e times) ou uma aposta adicional do mesmo jogo
                     # Verificar se tem liga
-                    league_keywords = ['América do Sul:', 'CONCACAF:', 'Costa Rica:', 'Venezuela:', 'Inglaterra:', 'Brasil:', 'Espanha:', 'Itália:', 'Alemanha:', 'Argentina:', 'Uruguai:', 'Colômbia:', 'Chile:', 'Peru:', 'Equador:', 'Bolívia:', 'Paraguai:', 'UEFA:', 'Copa Libertadores', 'Copa Sul Americana', 'Champions League', 'Europa League', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Brasileirão', 'Copa do Brasil', 'Copa do Nordeste', 'Primeira Liga', 'Série A', 'Série B', 'Série C', 'Série D']
+                    league_keywords = ['América do Sul:', 'CONCACAF:', 'Costa Rica:', 'Venezuela:', 'Inglaterra:', 'Brasil:', 'Espanha:', 'Itália:', 'Alemanha:', 'Argentina:', 'Uruguai:', 'Colômbia:', 'Chile:', 'Peru:', 'Equador:', 'Bolívia:', 'Paraguai:', 'UEFA:', 'Copa Libertadores', 'Copa Sul Americana', 'Champions League', 'Europa League', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Brasileirão', 'Copa do Brasil', 'Copa do Nordeste', 'Primeira Liga', 'Série A', 'Série B', 'Série C', 'Série D', 'França:', 'Internacional:', 'EUA:', 'FIBA', 'WNBA']
                     has_league = any(keyword in full_text for keyword in league_keywords)
                     
                     # Verificar se tem times
-                    # Verificar se tem times
-                    exclude_keywords = ['Vencedor:', 'Empate', 'Ambas equipes marcam', 'Mais de', 'Menos de', 'Gols', 'Corner', 'Cartão', 'Jogador', 'Odds', 'Data', 'Hora']
+                    exclude_keywords = ['Vencedor:', 'Empate', 'Ambas equipes marcam', 'Mais de', 'Menos de', 'Gols', 'Corner', 'Cartão', 'Jogador', 'Odds', 'Data', 'Hora', 'Live']
                     # Verificar se tem times (linha que contém " x " ou linhas 3-4 que não são keywords)
                     lines = full_text.split('\n')
                     has_teams = ' x ' in full_text
@@ -443,7 +442,57 @@ class ValSportsScraper:
                                 has_teams = True
                                 break
                     
-                    if has_league and has_teams:
+                    # Verificar se é um jogo único (não duplicado)
+                    is_unique_game = True
+                    if current_game:
+                        # Comparar com o jogo atual para ver se é o mesmo
+                        current_teams = current_game.get('teams', '')
+                        current_league = current_game.get('league', '')
+                        
+                        # Extrair times do texto atual
+                        current_text_teams = ''
+                        current_text_league = ''
+                        
+                        try:
+                            lines = full_text.split('\n')
+                            if lines:
+                                current_text_league = lines[0].strip()
+                            
+                            # Extrair times do texto atual
+                            for j, line in enumerate(lines):
+                                line = line.strip()
+                                if (' x ' in line and 
+                                    not any(keyword in line.lower() for keyword in ['vencedor:', 'empate', 'odds', 'data', 'hora', 'live']) and
+                                    not re.search(r'^\d+\.\d+$', line) and
+                                    not re.search(r'^\d{2}/\d{2}', line) and
+                                    len(line) > 3):
+                                    current_text_teams = line
+                                    break
+                                elif (j < len(lines) - 1 and 
+                                      line and 
+                                      not any(keyword in line.lower() for keyword in ['vencedor:', 'empate', 'odds', 'data', 'hora', 'live', 'bundesliga', 'série', 'ligue', 'fiba', 'wnba', 'premier']) and
+                                      not re.search(r'^\d+\.\d+$', line) and
+                                      not re.search(r'^\d{2}/\d{2}', line) and
+                                      len(line) > 2):
+                                    next_line = lines[j + 1].strip()
+                                    if (next_line and 
+                                        not any(keyword in next_line.lower() for keyword in ['vencedor:', 'empate', 'odds', 'data', 'hora', 'live']) and
+                                        not re.search(r'^\d+\.\d+$', next_line) and
+                                        not re.search(r'^\d{2}/\d{2}', next_line) and
+                                        len(next_line) > 2):
+                                        current_text_teams = f"{line} x {next_line}"
+                                        break
+                            
+                            # Se tem os mesmos times e liga, é o mesmo jogo
+                            if (current_text_teams and current_text_league and 
+                                current_text_teams == current_teams and 
+                                current_text_league == current_league):
+                                is_unique_game = False
+                                
+                        except Exception as e:
+                            pass
+                    
+                    if has_league and has_teams and is_unique_game:
                         # É um novo jogo
                         game_counter += 1
                         logger.info(f"🎮 Processando NOVO JOGO {game_counter}...")
@@ -538,19 +587,22 @@ class ValSportsScraper:
                                 elif re.search(r'^\d+\.\d+$', line):
                                     odds_list.append(line)
                             
-                            # Criar uma aposta para cada par seleção/odds
-                            for j, (selection, odds) in enumerate(zip(selections, odds_list)):
-                                if selection and odds:
-                                    # Criar entrada de aposta
-                                    bet_data = current_game.copy()
-                                    bet_data['selection'] = selection
-                                    bet_data['odds'] = odds
-                                    bet_data['bet_number'] = len([g for g in games if g.get('game_number') == game_counter]) + 1
-                                    
-                                    games.append(bet_data)
-                                    logger.info(f"   ✅ Aposta {bet_data['bet_number']} do Jogo {game_counter}: {selection} - {odds}")
-                            
-                            if not selections or not odds_list:
+                            # Criar uma entrada única para o jogo com todas as apostas
+                            if selections and odds_list:
+                                # Adicionar o jogo base
+                                game_entry = current_game.copy()
+                                game_entry['selections'] = []
+                                game_entry['odds_list'] = []
+                                
+                                # Adicionar todas as seleções e odds
+                                for selection, odds in zip(selections, odds_list):
+                                    if selection and odds:
+                                        game_entry['selections'].append(selection)
+                                        game_entry['odds_list'].append(odds)
+                                        logger.info(f"   ✅ Aposta {len(game_entry['selections'])} do Jogo {game_counter}: {selection} - {odds}")
+                                
+                                games.append(game_entry)
+                            else:
                                 logger.warning(f"   ⚠️ Não conseguiu extrair seleções/odds do texto")
                                 
                         except Exception as e:
