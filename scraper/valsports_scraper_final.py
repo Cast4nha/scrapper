@@ -471,18 +471,56 @@ class ValSportsScraper:
                         except Exception as e: pass
                         
                         try:
-                            # Extrair times
+                            # Extrair times - os times estão em linhas consecutivas
                             lines = full_text.split('\n')
                             for j, line in enumerate(lines):
-                                if ' x ' in line and not any(keyword in line.lower() for keyword in ['vencedor:', 'empate', 'odds', 'data', 'hora']):
+                                line = line.strip()
+                                
+                                # Procurar por linha que contém " x " (formato antigo)
+                                if (' x ' in line and 
+                                    not any(keyword in line.lower() for keyword in ['vencedor:', 'empate', 'odds', 'data', 'hora', 'live']) and
+                                    not re.search(r'^\d+\.\d+$', line) and
+                                    not re.search(r'^\d{2}/\d{2}', line) and
+                                    len(line) > 3):
+                                    
                                     teams = line.split(' x ')
                                     if len(teams) == 2:
-                                        current_game['home_team'] = teams[0].strip()
-                                        current_game['away_team'] = teams[1].strip()
-                                        current_game['teams'] = f"{current_game['home_team']} x {current_game['away_team']}"
-                                        logger.info(f"   Times: {current_game['teams']}")
-                                        break
-                        except Exception as e: pass
+                                        home_team = teams[0].strip()
+                                        away_team = teams[1].strip()
+                                        
+                                        if home_team and away_team and len(home_team) > 1 and len(away_team) > 1:
+                                            current_game['home_team'] = home_team
+                                            current_game['away_team'] = away_team
+                                            current_game['teams'] = f"{home_team} x {away_team}"
+                                            logger.info(f"   Times: {current_game['teams']}")
+                                            break
+                                
+                                # Procurar por times em linhas consecutivas (formato novo)
+                                elif (j < len(lines) - 1 and 
+                                      line and 
+                                      not any(keyword in line.lower() for keyword in ['vencedor:', 'empate', 'odds', 'data', 'hora', 'live', 'bundesliga', 'série', 'ligue', 'fiba', 'wnba', 'premier']) and
+                                      not re.search(r'^\d+\.\d+$', line) and
+                                      not re.search(r'^\d{2}/\d{2}', line) and
+                                      len(line) > 2):
+                                    
+                                    next_line = lines[j + 1].strip()
+                                    if (next_line and 
+                                        not any(keyword in next_line.lower() for keyword in ['vencedor:', 'empate', 'odds', 'data', 'hora', 'live']) and
+                                        not re.search(r'^\d+\.\d+$', next_line) and
+                                        not re.search(r'^\d{2}/\d{2}', next_line) and
+                                        len(next_line) > 2):
+                                        
+                                        home_team = line
+                                        away_team = next_line
+                                        
+                                        if home_team and away_team and len(home_team) > 1 and len(away_team) > 1:
+                                            current_game['home_team'] = home_team
+                                            current_game['away_team'] = away_team
+                                            current_game['teams'] = f"{home_team} x {away_team}"
+                                            logger.info(f"   Times: {current_game['teams']}")
+                                            break
+                        except Exception as e: 
+                            logger.warning(f"   ⚠️ Erro ao extrair times: {str(e)}")
                     
                     # Extrair TODAS as apostas do elemento
                     if current_game:
