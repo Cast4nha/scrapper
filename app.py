@@ -238,6 +238,67 @@ def confirm_bet():
             'error': f'Erro interno: {str(e)}'
         }), 500
 
+@app.route('/api/confirm-bet', methods=['POST'])
+def confirm_bet():
+    """Endpoint para confirmar bilhete após pagamento aprovado"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'bet_code' not in data:
+            return jsonify({
+                'status': 'error',
+                'message': 'Código do bilhete é obrigatório'
+            }), 400
+        
+        bet_code = data['bet_code']
+        
+        logger.info(f"Confirmando bilhete: {bet_code}")
+        
+        # Obter credenciais do ambiente
+        username = os.environ.get('VALSORTS_USERNAME', 'cairovinicius')
+        password = os.environ.get('VALSORTS_PASSWORD', '279999')
+        
+        # Obter instância do scraper (com cache otimizado)
+        scraper_instance = get_scraper()
+        
+        # Fazer login automático (se necessário)
+        if not scraper_instance.is_logged_in:
+            logger.info(f"Fazendo login para usuário: {username}")
+            login_success = scraper_instance.login(username, password)
+            
+            if not login_success:
+                logger.error("Falha no login")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Falha no login - credenciais inválidas'
+                }), 401
+        else:
+            logger.info("Usando sessão existente")
+        
+        # Confirmar bilhete
+        logger.info(f"Confirmando bilhete: {bet_code}")
+        confirmation_success = scraper_instance.confirm_bet(bet_code)
+        
+        if confirmation_success:
+            return jsonify({
+                'status': 'success',
+                'bet_code': bet_code,
+                'message': 'Bilhete confirmado com sucesso',
+                'confirmed_at': time.strftime('%Y-%m-%d %H:%M:%S')
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Não foi possível confirmar o bilhete'
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Erro ao confirmar bilhete: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Erro interno: {str(e)}'
+        }), 500
+
 @app.route('/api/capture-bet', methods=['POST'])
 def capture_bet():
     """Endpoint otimizado: Login + Captura em uma única operação"""

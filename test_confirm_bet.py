@@ -1,74 +1,61 @@
 #!/usr/bin/env python3
 """
-Script para testar a confirmação de aposta
+Teste do endpoint de confirmação de bilhete
 """
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from scraper.valsports_scraper import ValSportsScraper
-import logging
-
-# Configurar logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+import requests
+import json
+import time
 
 def test_confirm_bet():
-    """Testar confirmação de aposta"""
-    print("🔍 Teste de Confirmação de Aposta - ValSports")
+    """Testa o endpoint de confirmação de bilhete"""
+    
+    print("🧪 TESTE DE CONFIRMAÇÃO DE BILHETE")
     print("=" * 50)
     
-    # Credenciais
-    username = "cairovinicius"
-    password = "279999"
-    bet_code = "dmgkrn"
+    # Configurações
+    api_url = "https://valsports.qobebrasil.com.br/api/confirm-bet"
+    bet_code = "n6e2er"  # Bilhete de teste
     
-    scraper = None
+    # Dados da requisição
+    payload = {
+        "bet_code": bet_code
+    }
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    print(f"🌐 Endpoint: {api_url}")
+    print(f"🎯 Bilhete: {bet_code}")
+    print(f"📡 Enviando requisição...")
+    
     try:
-        # 1. Inicializar scraper
-        print("1. Inicializando scraper...")
-        scraper = ValSportsScraper()
-        print("✓ Scraper inicializado")
+        # Fazer requisição
+        start_time = time.time()
+        response = requests.post(api_url, json=payload, headers=headers)
+        end_time = time.time()
         
-        # 2. Fazer login
-        print("\n2. Executando login...")
-        if scraper.login(username, password):
-            print("✅ Login realizado com sucesso")
+        print(f"⏱️ Tempo de resposta: {end_time - start_time:.2f} segundos")
+        print(f"📊 Status Code: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            print("\n✅ SUCESSO! Bilhete confirmado:")
+            print(f"📝 Status: {data.get('status', 'N/A')}")
+            print(f"🎯 Código: {data.get('bet_code', 'N/A')}")
+            print(f"📝 Mensagem: {data.get('message', 'N/A')}")
+            print(f"⏰ Confirmado em: {data.get('confirmed_at', 'N/A')}")
         else:
-            print("❌ Falha no login")
-            return
-        
-        # 3. Capturar dados do bilhete primeiro
-        print(f"\n3. Capturando dados do bilhete: {bet_code}")
-        bet_data = scraper.scrape_bet_ticket(bet_code)
-        if bet_data:
-            print("✅ Dados capturados com sucesso!")
-            print(f"📊 Valor da aposta: {bet_data.get('bet_value', 'N/A')}")
-            print(f"📊 Nome do apostador: {bet_data.get('bettor_name', 'N/A')}")
-        else:
-            print("❌ Falha ao capturar dados")
-            return
-        
-        # 4. Confirmar aposta
-        print(f"\n4. Confirmando aposta: {bet_code}")
-        if scraper.confirm_bet(bet_code):
-            print("✅ Aposta confirmada com sucesso!")
-            print("📸 Screenshot salvo como bet_confirmed.png")
-        else:
-            print("❌ Falha ao confirmar aposta")
-            print("📸 Screenshots de erro salvos para debug")
-            return
-        
-        print("\n🎉 Teste de confirmação concluído com sucesso!")
-        
+            print(f"\n❌ ERRO! Status: {response.status_code}")
+            try:
+                error_data = response.json()
+                print(f"📝 Erro: {error_data.get('message', 'Erro desconhecido')}")
+            except:
+                print(f"📝 Erro: {response.text}")
+                
     except Exception as e:
-        print(f"❌ Erro geral: {str(e)}")
-    finally:
-        if scraper:
-            print("\n5. Fechando scraper...")
-            scraper.close()
-            print("✓ Scraper fechado")
+        print(f"❌ Erro na requisição: {str(e)}")
 
 if __name__ == "__main__":
     test_confirm_bet()
