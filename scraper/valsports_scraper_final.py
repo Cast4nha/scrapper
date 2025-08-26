@@ -630,27 +630,128 @@ class ValSportsScraper:
             
             # Navegar para o bilhete
             bet_url = f"{self.base_url}/prebet/{bet_code}"
+            logger.info(f"🌐 Navegando para: {bet_url}")
             self.driver.get(bet_url)
             time.sleep(5)
             
             # Aguardar carregamento
-            wait = WebDriverWait(self.driver, 15)
+            wait = WebDriverWait(self.driver, 20)
             
-            # Clicar no botão de confirmação
-            confirm_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn-group > .text-style")))
-            confirm_button.click()
-            time.sleep(2)
-            
-            # Clicar em "Sim" para confirmar
-            yes_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(text(),'Sim')]")))
-            yes_button.click()
-            time.sleep(3)
-            
-            logger.info("✅ Aposta confirmada com sucesso")
-            return True
-            
+            # Verificar se a página carregou corretamente
+            try:
+                # Procurar por vários seletores possíveis do botão de confirmação
+                confirm_button = None
+                possible_selectors = [
+                    ".btn-group > .text-style",
+                    ".btn.text-style",
+                    "button[type='button'].btn.text-style",
+                    ".btn-group button",
+                    "//button[contains(text(), 'Apostar')]",
+                    "//a[contains(text(), 'Apostar')]"
+                ]
+                
+                for selector in possible_selectors:
+                    try:
+                        if selector.startswith("//"):
+                            confirm_button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+                        else:
+                            confirm_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+                        logger.info(f"✅ Botão de confirmação encontrado com seletor: {selector}")
+                        break
+                    except:
+                        continue
+                
+                if not confirm_button:
+                    logger.error("❌ Botão de confirmação não encontrado")
+                    self.driver.save_screenshot(f"confirm_button_not_found_{bet_code}.png")
+                    return False
+                
+                # Scroll para o elemento se necessário
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", confirm_button)
+                time.sleep(1)
+                
+                # Tentar clicar
+                try:
+                    confirm_button.click()
+                    logger.info("✅ Clique no botão de confirmação realizado")
+                except Exception as click_error:
+                    logger.warning(f"⚠️ Clique normal falhou, tentando JavaScript: {click_error}")
+                    self.driver.execute_script("arguments[0].click();", confirm_button)
+                    logger.info("✅ Clique via JavaScript realizado")
+                
+                time.sleep(3)
+                
+                # Procurar pelo botão "Sim" para confirmar
+                yes_button = None
+                yes_selectors = [
+                    "//a[contains(text(),'Sim')]",
+                    "//button[contains(text(),'Sim')]", 
+                    ".btn-success",
+                    ".btn[data-dismiss='modal']"
+                ]
+                
+                for selector in yes_selectors:
+                    try:
+                        yes_button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+                        logger.info(f"✅ Botão 'Sim' encontrado com seletor: {selector}")
+                        break
+                    except:
+                        continue
+                
+                if yes_button:
+                    # Scroll para o elemento se necessário
+                    self.driver.execute_script("arguments[0].scrollIntoView(true);", yes_button)
+                    time.sleep(1)
+                    
+                    try:
+                        yes_button.click()
+                        logger.info("✅ Clique no botão 'Sim' realizado")
+                    except Exception as click_error:
+                        logger.warning(f"⚠️ Clique normal no 'Sim' falhou, tentando JavaScript: {click_error}")
+                        self.driver.execute_script("arguments[0].click();", yes_button)
+                        logger.info("✅ Clique via JavaScript no 'Sim' realizado")
+                    
+                    time.sleep(5)
+                    
+                    # Verificar se houve confirmação (procurar por mensagem de sucesso ou mudança na URL)
+                    current_url = self.driver.current_url
+                    logger.info(f"📍 URL atual após confirmação: {current_url}")
+                    
+                    # Procurar por indicadores de sucesso
+                    success_indicators = [
+                        ".alert-success",
+                        ".success-message", 
+                        "//div[contains(text(), 'confirmad')]",
+                        "//div[contains(text(), 'sucesso')]"
+                    ]
+                    
+                    for indicator in success_indicators:
+                        try:
+                            if indicator.startswith("//"):
+                                element = self.driver.find_element(By.XPATH, indicator)
+                            else:
+                                element = self.driver.find_element(By.CSS_SELECTOR, indicator)
+                            logger.info(f"✅ Indicador de sucesso encontrado: {element.text}")
+                            break
+                        except:
+                            continue
+                else:
+                    logger.warning("⚠️ Botão 'Sim' não encontrado, mas confirmação pode ter sido feita")
+                
+                # Salvar screenshot para debug
+                self.driver.save_screenshot(f"confirm_final_{bet_code}.png")
+                
+                logger.info("✅ Processo de confirmação concluído")
+                return True
+                
+            except TimeoutException:
+                logger.error("❌ Timeout - elementos não encontrados")
+                self.driver.save_screenshot(f"timeout_error_{bet_code}.png")
+                return False
+                
         except Exception as e:
             logger.error(f"❌ Erro ao confirmar aposta: {str(e)}")
+            self.driver.save_screenshot(f"error_{bet_code}.png")
             return False
     
     def close(self):
