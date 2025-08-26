@@ -679,7 +679,7 @@ class ValSportsScraper:
                     self.driver.execute_script("arguments[0].click();", confirm_button)
                     logger.info("✅ Clique via JavaScript realizado")
                 
-                time.sleep(3)
+                time.sleep(5)
                 
                 # Procurar pelo botão "Sim" para confirmar
                 yes_button = None
@@ -711,13 +711,49 @@ class ValSportsScraper:
                         self.driver.execute_script("arguments[0].click();", yes_button)
                         logger.info("✅ Clique via JavaScript no 'Sim' realizado")
                     
-                    time.sleep(5)
+                    time.sleep(8)
                     
                     # Verificar se houve confirmação (procurar por mensagem de sucesso ou mudança na URL)
                     current_url = self.driver.current_url
                     logger.info(f"📍 URL atual após confirmação: {current_url}")
                     
-                    # Procurar por indicadores de sucesso
+                    # Verificar se ainda está na página do bilhete (confirmação falhou)
+                    if f"/prebet/{bet_code}" in current_url:
+                        logger.error("❌ Ainda na página do bilhete - confirmação falhou")
+                        self.driver.save_screenshot(f"confirmation_failed_{bet_code}.png")
+                        return False
+                    
+                    # Se foi redirecionado para home, pode ter funcionado ou falhado
+                    if current_url == f"{self.base_url}/" or current_url == self.base_url:
+                        logger.warning("⚠️ Redirecionado para home - verificando se foi confirmado")
+                        
+                        # Verificar na página "Minhas Apostas" se o bilhete aparece como confirmado
+                        self.driver.get(f"{self.base_url}/bets")
+                        time.sleep(3)
+                        
+                        # Procurar pelo código do bilhete nas apostas
+                        try:
+                            bet_element = self.driver.find_element(By.XPATH, f"//td[contains(text(), '{bet_code}')]")
+                            logger.info(f"✅ Bilhete {bet_code} encontrado na lista de apostas")
+                            
+                            # Verificar o status (deve estar como "ABERTA" e não "PENDENTE")
+                            parent_row = bet_element.find_element(By.XPATH, "./parent::tr")
+                            status_cell = parent_row.find_elements(By.TAG_NAME, "td")[-1]  # Última coluna
+                            status_text = status_cell.text.strip()
+                            logger.info(f"📊 Status do bilhete: {status_text}")
+                            
+                            if "ABERTA" in status_text or "CONFIRMADA" in status_text:
+                                logger.info("✅ Bilhete confirmado com sucesso")
+                                return True
+                            else:
+                                logger.error(f"❌ Bilhete não confirmado. Status: {status_text}")
+                                return False
+                                
+                        except Exception as e:
+                            logger.error(f"❌ Bilhete não encontrado nas apostas: {str(e)}")
+                            return False
+                    
+                    # Procurar por indicadores de sucesso na página atual
                     success_indicators = [
                         ".alert-success",
                         ".success-message", 
@@ -732,7 +768,7 @@ class ValSportsScraper:
                             else:
                                 element = self.driver.find_element(By.CSS_SELECTOR, indicator)
                             logger.info(f"✅ Indicador de sucesso encontrado: {element.text}")
-                            break
+                            return True
                         except:
                             continue
                 else:
