@@ -198,48 +198,6 @@ def login():
 
 @app.route('/api/confirm-bet', methods=['POST'])
 def confirm_bet():
-    """Endpoint para confirmar uma aposta"""
-    try:
-        data = request.get_json()
-        
-        if not data or 'bet_code' not in data:
-            return jsonify({
-                'success': False,
-                'error': 'Código do bilhete é obrigatório'
-            }), 400
-        
-        bet_code = data['bet_code']
-        
-        logger.info(f"Confirmando aposta: {bet_code}")
-        
-        # Obter instância do scraper (com cache)
-        scraper_instance = get_scraper()
-        
-        # Confirmar aposta
-        confirmation_success = scraper_instance.confirm_bet(bet_code)
-        
-        if confirmation_success:
-            return jsonify({
-                'success': True,
-                'message': 'Aposta confirmada com sucesso',
-                'bet_code': bet_code,
-                'status': 'confirmed'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Não foi possível confirmar a aposta'
-            }), 400
-            
-    except Exception as e:
-        logger.error(f"Erro ao confirmar aposta: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'Erro interno: {str(e)}'
-        }), 500
-
-@app.route('/api/confirm-bet', methods=['POST'])
-def confirm_bet():
     """Endpoint para confirmar bilhete após pagamento aprovado"""
     try:
         data = request.get_json()
