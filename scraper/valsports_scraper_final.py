@@ -772,13 +772,13 @@ class ValSportsScraper:
                         except:
                             continue
                 else:
-                    logger.warning("⚠️ Botão 'Sim' não encontrado, mas confirmação pode ter sido feita")
+                    logger.warning("⚠️ Botão 'Sim' não encontrado")
+                    # Salvar screenshot para debug
+                    self.driver.save_screenshot(f"confirm_final_{bet_code}.png")
+                    return False
                 
-                # Salvar screenshot para debug
-                self.driver.save_screenshot(f"confirm_final_{bet_code}.png")
-                
-                logger.info("✅ Processo de confirmação concluído")
-                return True
+                # Se chegou até aqui, verificar se realmente foi confirmado
+                logger.info("✅ Processo de confirmação concluído - verificando resultado")
                 
             except TimeoutException:
                 logger.error("❌ Timeout - elementos não encontrados")
