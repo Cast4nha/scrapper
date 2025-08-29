@@ -6,9 +6,6 @@ from scraper.valsports_scraper_final import ValSportsScraper
 import logging
 import time
 import threading
-import uuid
-from queue import Queue
-import atexit
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -22,18 +19,41 @@ app = Flask(__name__)
 # Configuração de CORS
 CORS(app)
 
-# Sistema de processamento sequencial simplificado
-processing_lock = threading.Lock()
+# Cache global do scraper para reutilização
+scraper_cache = None
+scraper_lock = threading.Lock()
+last_used_time = 0
 CACHE_TIMEOUT = 300  # 5 minutos
-last_cleanup = time.time()
 
-def get_scraper_instance():
-    """Obtém uma instância única do scraper com lock para concorrência"""
-    # Usar uma abordagem mais simples e robusta
-    with processing_lock:
-        # Criar uma nova instância para cada requisição (mais seguro)
-        scraper = ValSportsScraper()
-        return scraper
+def get_scraper():
+    """Singleton otimizado para o scraper com cache de sessão"""
+    global scraper_cache, last_used_time
+    
+    with scraper_lock:
+        current_time = time.time()
+        
+        # Se o cache expirou ou não existe, criar novo
+        if (scraper_cache is None or 
+            current_time - last_used_time > CACHE_TIMEOUT):
+            
+            logger.info("Criando nova instância do scraper")
+            
+            # Fechar instância anterior se existir
+            if scraper_cache:
+                try:
+                    scraper_cache.close()
+                except:
+                    pass
+            
+            # Criar nova instância
+            scraper_cache = ValSportsScraper()
+            last_used_time = current_time
+            
+            logger.info("Nova instância do scraper criada")
+        else:
+            logger.info("Reutilizando instância do scraper em cache")
+        
+        return scraper_cache
 
 # Tratamento de erros global
 @app.errorhandler(Exception)
@@ -60,18 +80,16 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'service': 'valsports-scraper-api',
-        'version': '2.1.0',
-        'features': ['sequential_processing', 'thread_safe', 'concurrent_safe'],
-        'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
+        'version': '1.0.0',
+        'timestamp': '2025-08-19 15:05:00'
     })
 
 @app.route('/', methods=['GET'])
 def root():
     """Endpoint raiz para teste"""
     return jsonify({
-        'message': 'ValSports Scraper API v2.1',
+        'message': 'ValSports Scraper API',
         'status': 'running',
-        'features': ['sequential_processing', 'thread_safe', 'concurrent_safe'],
         'endpoints': {
             'health': '/health',
             'scrape_bet': '/api/scrape-bet',
@@ -96,130 +114,83 @@ def ping():
     """Endpoint ping simples"""
     return jsonify({'pong': True})
 
-def scrape_bet_worker(bet_code, session_id):
-    """Worker function para scrape de bilhete"""
-    try:
-        logger.info(f"Capturando bilhete {bet_code} na sessão {session_id}")
-
-        # Obter scraper para esta sessão
-        scraper_instance, actual_session_id = get_or_create_scraper(session_id)
-
-        # Capturar dados do bilhete
-        bet_data = scraper_instance.scrape_bet_ticket(bet_code)
-
-        if not bet_data:
-            return {
-                'success': False,
-                'error': 'Não foi possível capturar dados do bilhete'
-            }, 404
-
-        return {
-            'success': True,
-            'data': bet_data,
-            'bet_code': bet_code,
-            'session_id': actual_session_id
-        }, 200
-
-    except Exception as e:
-        logger.error(f"Erro ao capturar bilhete {bet_code}: {str(e)}")
-        return {
-            'success': False,
-            'error': f'Erro interno: {str(e)}'
-        }, 500
-
 @app.route('/api/scrape-bet', methods=['POST'])
 def scrape_bet():
-    """Endpoint para capturar dados de um bilhete específico com processamento sequencial"""
+    """Endpoint para capturar dados de um bilhete específico"""
     try:
         data = request.get_json()
-
+        
         if not data or 'bet_code' not in data:
             return jsonify({
                 'success': False,
                 'error': 'Código do bilhete é obrigatório'
             }), 400
-
+        
         bet_code = data['bet_code']
-        session_id = data.get('session_id')  # Opcional: permite reutilizar sessão específica
-
+        
         logger.info(f"Capturando bilhete: {bet_code}")
-
-        # Processar sequencialmente para evitar conflitos
-        result, status_code = process_request_sequentially(
-            scrape_bet_worker,
-            bet_code,
-            session_id
-        )
-
-        return jsonify(result), status_code
-
+        
+        # Obter instância do scraper (com cache)
+        scraper_instance = get_scraper()
+        
+        # Capturar dados do bilhete
+        bet_data = scraper_instance.scrape_bet_ticket(bet_code)
+        
+        if not bet_data:
+            return jsonify({
+                'success': False,
+                'error': 'Não foi possível capturar dados do bilhete'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'data': bet_data,
+            'bet_code': bet_code
+        })
+        
     except Exception as e:
-        logger.error(f"Erro ao processar scrape: {str(e)}")
+        logger.error(f"Erro ao capturar bilhete: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Erro interno: {str(e)}'
         }), 500
 
-def login_worker(username, password, session_id):
-    """Worker function para login"""
-    try:
-        logger.info(f"Tentativa de login para usuário: {username} (sessão: {session_id})")
-
-        # Obter scraper para esta sessão
-        scraper_instance, actual_session_id = get_or_create_scraper(session_id)
-
-        # Fazer login
-        login_success = scraper_instance.login(username, password)
-
-        if login_success:
-            return {
-                'success': True,
-                'message': 'Login realizado com sucesso',
-                'session_id': actual_session_id
-            }, 200
-        else:
-            return {
-                'success': False,
-                'error': 'Credenciais inválidas'
-            }, 401
-
-    except Exception as e:
-        logger.error(f"Erro no login: {str(e)}")
-        return {
-            'success': False,
-            'error': f'Erro interno: {str(e)}'
-        }, 500
-
 @app.route('/api/login', methods=['POST'])
 def login():
-    """Endpoint para fazer login no sistema com processamento sequencial"""
+    """Endpoint para fazer login no sistema"""
     try:
         data = request.get_json()
-
+        
         if not data or 'username' not in data or 'password' not in data:
             return jsonify({
                 'success': False,
                 'error': 'Usuário e senha são obrigatórios'
             }), 400
-
+        
         username = data['username']
         password = data['password']
-        session_id = data.get('session_id')  # Opcional: permite reutilizar sessão específica
-
+        
         logger.info(f"Tentativa de login para usuário: {username}")
-
-        # Processar sequencialmente para evitar conflitos
-        result, status_code = process_request_sequentially(
-            login_worker,
-            username,
-            password,
-            session_id
-        )
-
-        return jsonify(result), status_code
-
+        
+        # Obter instância do scraper (com cache)
+        scraper_instance = get_scraper()
+        
+        # Fazer login
+        login_success = scraper_instance.login(username, password)
+        
+        if login_success:
+            return jsonify({
+                'success': True,
+                'message': 'Login realizado com sucesso'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Credenciais inválidas'
+            }), 401
+            
     except Exception as e:
-        logger.error(f"Erro ao processar login: {str(e)}")
+        logger.error(f"Erro no login: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Erro interno: {str(e)}'
@@ -227,66 +198,58 @@ def login():
 
 @app.route('/api/confirm-bet', methods=['POST'])
 def confirm_bet():
-    """Endpoint para confirmar bilhete após pagamento aprovado com processamento sequencial"""
+    """Endpoint para confirmar bilhete após pagamento aprovado"""
     try:
         data = request.get_json()
-
+        
         if not data or 'bet_code' not in data:
             return jsonify({
                 'status': 'error',
                 'message': 'Código do bilhete é obrigatório'
             }), 400
-
+        
         bet_code = data['bet_code']
-
+        
         logger.info(f"Confirmando bilhete: {bet_code}")
-
-        # Processar com lock sequencial para evitar conflitos
-        with processing_lock:
-            # Obter credenciais do ambiente
-            username = os.environ.get('VALSORTS_USERNAME', 'cairovinicius')
-            password = os.environ.get('VALSORTS_PASSWORD', '279999')
-
-            # Obter instância do scraper
-            scraper_instance = get_scraper_instance()
-
-            try:
-                # Fazer login
-                if not scraper_instance.is_logged_in:
-                    logger.info(f"Fazendo login para usuário: {username}")
-                    login_success = scraper_instance.login(username, password)
-
-                    if not login_success:
-                        logger.error("Falha no login")
-                        return jsonify({
-                            'status': 'error',
-                            'message': 'Falha no login - credenciais inválidas'
-                        }), 401
-
-                # Confirmar bilhete
-                logger.info(f"Confirmando bilhete: {bet_code}")
-                confirmation_success = scraper_instance.confirm_bet(bet_code)
-
-                if confirmation_success:
-                    return jsonify({
-                        'status': 'success',
-                        'bet_code': bet_code,
-                        'message': 'Bilhete confirmado com sucesso',
-                        'confirmed_at': time.strftime('%Y-%m-%d %H:%M:%S')
-                    })
-                else:
-                    return jsonify({
-                        'status': 'error',
-                        'message': 'Não foi possível confirmar o bilhete'
-                    }), 400
-
-            finally:
-                # Sempre fechar o scraper após uso
-                try:
-                    scraper_instance.close()
-                except:
-                    pass
-
+        
+        # Obter credenciais do ambiente
+        username = os.environ.get('VALSORTS_USERNAME', 'cairovinicius')
+        password = os.environ.get('VALSORTS_PASSWORD', '279999')
+        
+        # Obter instância do scraper (com cache otimizado)
+        scraper_instance = get_scraper()
+        
+        # Fazer login automático (se necessário)
+        if not scraper_instance.is_logged_in:
+            logger.info(f"Fazendo login para usuário: {username}")
+            login_success = scraper_instance.login(username, password)
+            
+            if not login_success:
+                logger.error("Falha no login")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Falha no login - credenciais inválidas'
+                }), 401
+        else:
+            logger.info("Usando sessão existente")
+        
+        # Confirmar bilhete
+        logger.info(f"Confirmando bilhete: {bet_code}")
+        confirmation_success = scraper_instance.confirm_bet(bet_code)
+        
+        if confirmation_success:
+            return jsonify({
+                'status': 'success',
+                'bet_code': bet_code,
+                'message': 'Bilhete confirmado com sucesso',
+                'confirmed_at': time.strftime('%Y-%m-%d %H:%M:%S')
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Não foi possível confirmar o bilhete'
+            }), 400
+            
     except Exception as e:
         logger.error(f"Erro ao confirmar bilhete: {str(e)}")
         return jsonify({
@@ -296,72 +259,64 @@ def confirm_bet():
 
 @app.route('/api/capture-bet', methods=['POST'])
 def capture_bet():
-    """Endpoint otimizado: Login + Captura em uma única operação com processamento sequencial"""
+    """Endpoint otimizado: Login + Captura em uma única operação"""
     try:
         start_time = time.time()
         data = request.get_json()
-
+        
         if not data or 'bet_code' not in data:
             return jsonify({
                 'status': 'error',
                 'message': 'Código do bilhete é obrigatório'
             }), 400
-
+        
         bet_code = data['bet_code']
-
+        
         logger.info(f"Capturando bilhete: {bet_code}")
-
-        # Processar com lock sequencial para evitar conflitos
-        with processing_lock:
-            # Obter credenciais do ambiente
-            username = os.environ.get('VALSORTS_USERNAME', 'cairovinicius')
-            password = os.environ.get('VALSORTS_PASSWORD', '279999')
-
-            # Obter instância do scraper
-            scraper_instance = get_scraper_instance()
-
-            try:
-                # Fazer login
-                if not scraper_instance.is_logged_in:
-                    logger.info(f"Fazendo login para usuário: {username}")
-                    login_success = scraper_instance.login(username, password)
-
-                    if not login_success:
-                        logger.error("Falha no login")
-                        return jsonify({
-                            'status': 'error',
-                            'message': 'Falha no login - credenciais inválidas'
-                        }), 401
-
-                # Capturar dados do bilhete
-                logger.info(f"Capturando dados do bilhete: {bet_code}")
-                bet_data = scraper_instance.scrape_bet_ticket(bet_code)
-
-                if not bet_data:
-                    logger.error(f"Falha ao capturar dados do bilhete: {bet_code}")
-                    return jsonify({
-                        'status': 'error',
-                        'message': 'Falha ao capturar dados do bilhete'
-                    }), 404
-
-                execution_time = time.time() - start_time
-                logger.info(f"Dados capturados com sucesso para bilhete: {bet_code} em {execution_time:.2f}s")
-
+        
+        # Obter credenciais do ambiente
+        username = os.environ.get('VALSORTS_USERNAME', 'cairovinicius')
+        password = os.environ.get('VALSORTS_PASSWORD', '279999')
+        
+        # Obter instância do scraper (com cache otimizado)
+        scraper_instance = get_scraper()
+        
+        # Fazer login automático (se necessário)
+        if not scraper_instance.is_logged_in:
+            logger.info(f"Fazendo login para usuário: {username}")
+            login_success = scraper_instance.login(username, password)
+            
+            if not login_success:
+                logger.error("Falha no login")
                 return jsonify({
-                    'status': 'success',
-                    'bet_code': bet_code,
-                    'data': bet_data,
-                    'message': 'Dados capturados com sucesso',
-                    'execution_time': f"{execution_time:.2f}s"
-                })
-
-            finally:
-                # Sempre fechar o scraper após uso
-                try:
-                    scraper_instance.close()
-                except:
-                    pass
-
+                    'status': 'error',
+                    'message': 'Falha no login - credenciais inválidas'
+                }), 401
+        else:
+            logger.info("Usando sessão existente")
+        
+        # Capturar dados do bilhete
+        logger.info(f"Capturando dados do bilhete: {bet_code}")
+        bet_data = scraper_instance.scrape_bet_ticket(bet_code)
+        
+        if not bet_data:
+            logger.error(f"Falha ao capturar dados do bilhete: {bet_code}")
+            return jsonify({
+                'status': 'error',
+                'message': 'Falha ao capturar dados do bilhete'
+            }), 404
+        
+        execution_time = time.time() - start_time
+        logger.info(f"Dados capturados com sucesso para bilhete: {bet_code} em {execution_time:.2f}s")
+        
+        return jsonify({
+            'status': 'success',
+            'bet_code': bet_code,
+            'data': bet_data,
+            'message': 'Dados capturados com sucesso',
+            'execution_time': f"{execution_time:.2f}s"
+        })
+        
     except Exception as e:
         logger.error(f"Erro ao capturar bilhete: {str(e)}")
         return jsonify({
