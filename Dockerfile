@@ -10,10 +10,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
-    software-properties-common \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar Firefox
+# Instalar Firefox ESR
 RUN wget -qO- https://packages.mozilla.org/apt/repo-signing-key.gpg | apt-key add - \
     && echo "deb https://packages.mozilla.org/apt/ firefox-esr main" | tee /etc/apt/sources.list.d/firefox-esr.list \
     && apt-get update \
