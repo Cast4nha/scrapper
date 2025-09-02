@@ -1,0 +1,8 @@
+# ValSports Capture Service Dependencies
+Flask==2.3.3
+Flask-CORS==4.0.0
+selenium==4.15.2
+requests==2.31.0
+python-dotenv==1.0.0
+urllib3==2.0.7
+Werkzeug==2.3.7

@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "bet_code": "7hfqpy",
+  "data": {
+    "bet_code": "7hfqpy",
+    "bet_value": "R$ 25,84",
+    "bettor_name": "Usuário",
+    "games": [],
+    "possible_prize": "R$ 0,00",
+    "total_games": 0,
+    "total_odds": "0,00"
+  },
+  "execution_time": "200.13s",
+  "message": "Dados capturados com sucesso",
+  "status": "success"
+}
