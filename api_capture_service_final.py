@@ -240,7 +240,7 @@ if __name__ == '__main__':
     logger.info("📋 Baseado na implementação funcional do commit b2cc471")
     
     # Configurações para produção
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', 5007))  # Mudando para 5007 para evitar conflito
     debug = os.getenv('DEBUG', 'false').lower() == 'true'
     
     logger.info(f"🌐 Serviço rodando na porta: {port}")
