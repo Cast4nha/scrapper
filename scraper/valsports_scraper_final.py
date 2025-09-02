@@ -236,7 +236,7 @@ class ValSportsScraper:
                 logger.warning(f"⚠️ Erro ao extrair campos do apostador: {str(e)}")
             
             # 6. Extrair jogos usando seletores corretos baseados no HTML real
-            games = self._extract_games_with_real_selectors()
+            games = self._extract_games_dynamically()
             bet_data['games'] = games
             
             # Atualizar contador se não foi encontrado
@@ -500,7 +500,7 @@ class ValSportsScraper:
                         # Extrair dados básicos do jogo
                         current_game = {
                             'game_number': game_counter, 'league': '', 'home_team': '', 'away_team': '',
-                            'datetime': '', 'teams': ''
+                            'datetime': '', 'teams': '', 'selections': [], 'odds_list': []
                         }
                         
                         try:
