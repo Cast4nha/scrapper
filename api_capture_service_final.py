@@ -238,4 +238,12 @@ def api_capture_bet():
 if __name__ == '__main__':
     logger.info("🚀 Iniciando ValSports Capture Service (Final)...")
     logger.info("📋 Baseado na implementação funcional do commit b2cc471")
-    app.run(host='0.0.0.0', port=5007, debug=True)
+    
+    # Configurações para produção
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('DEBUG', 'false').lower() == 'true'
+    
+    logger.info(f"🌐 Serviço rodando na porta: {port}")
+    logger.info(f"🔧 Modo debug: {debug}")
+    
+    app.run(host='0.0.0.0', port=port, debug=debug)
