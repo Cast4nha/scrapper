@@ -440,7 +440,7 @@ def cleanup_expired_scrapers():
             time.sleep(60)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001))  # Mudando para porta 5001
     debug = os.environ.get('DEBUG', 'False').lower() == 'true'
 
     # Iniciar thread de limpeza em background

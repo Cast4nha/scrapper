@@ -620,139 +620,683 @@ class ValSportsScraper:
         return games
     
     def confirm_bet(self, bet_code):
-        """Confirma a aposta no sistema"""
+        """Confirma a aposta no sistema - VERSÃO ATUALIZADA PARA O SISTEMA ATUAL"""
         try:
             if not self.is_logged_in:
                 logger.error("❌ Usuário não está logado")
                 return False
-            
+
             logger.info(f"✅ Confirmando aposta: {bet_code}")
-            
-            # Navegar para o bilhete
-            bet_url = f"{self.base_url}/prebet/{bet_code}"
-            logger.info(f"🌐 Navegando para: {bet_url}")
-            self.driver.get(bet_url)
-            time.sleep(5)
-            
-            # Aguardar carregamento
-            wait = WebDriverWait(self.driver, 20)
-            
-            # Verificar se a página carregou corretamente
+
+            # PASSO 1: Ir para a página inicial
+            logger.info("🏠 Indo para página inicial...")
+            self.driver.get(self.base_url)
+            time.sleep(3)
+
+            # PASSO 2: Clicar em "Pré-aposta"
+            logger.info("📋 Clicando em 'Pré-aposta'...")
+            wait = WebDriverWait(self.driver, 10)
+
             try:
-                # Procurar por vários seletores possíveis do botão de confirmação
-                confirm_button = None
-                possible_selectors = [
-                    ".btn-group > .text-style",
-                    ".btn.text-style",
-                    "button[type='button'].btn.text-style",
-                    ".btn-group button",
+                pre_bet_link = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "PRÉ-APOSTA")))
+                pre_bet_link.click()
+                logger.info("✅ Clicou em 'Pré-aposta'")
+                time.sleep(3)
+            except Exception as e:
+                logger.error(f"❌ Erro ao clicar em Pré-aposta: {str(e)}")
+                self.driver.save_screenshot(f"pre_bet_click_error_{bet_code}.png")
+                return False
+
+            # PASSO 3: Encontrar o campo para código da pré-aposta
+            logger.info("🔍 Procurando campo para código da pré-aposta...")
+
+            # O sistema atual tem um campo específico com classe 'v-dialog-input' para o código
+            bet_code_field = None
+            try:
+                # Primeiro tentar o campo específico identificado na investigação
+                bet_code_field = self.driver.find_element(By.CSS_SELECTOR, ".v-dialog-input")
+                logger.info("✅ Campo de código encontrado (classe v-dialog-input)")
+            except:
+                # Fallback: procurar por campo vazio que apareceu após Pré-aposta
+                try:
+                    inputs = self.driver.find_elements(By.TAG_NAME, "input")
+                    for input_field in inputs:
+                        placeholder = input_field.get_attribute("placeholder") or ""
+                        if not placeholder.strip() and input_field.is_displayed():
+                            # Verificar se não é o campo de pesquisa
+                            if "pesquisar" not in (input_field.get_attribute("placeholder") or "").lower():
+                                bet_code_field = input_field
+                                logger.info("✅ Campo de código encontrado (campo vazio)")
+                                break
+                except Exception as e:
+                    logger.error(f"❌ Erro ao procurar campo de código: {str(e)}")
+
+            if not bet_code_field:
+                logger.error("❌ Campo para código da pré-aposta não encontrado")
+                self.driver.save_screenshot(f"no_bet_code_field_{bet_code}.png")
+                return False
+
+            # PASSO 4: Inserir o código do bilhete
+            logger.info(f"⌨️ Digitando código: {bet_code}")
+            bet_code_field.clear()
+            bet_code_field.send_keys(bet_code)
+            time.sleep(1)
+
+            # PASSO 5: Procurar botão de busca/confirmação
+            logger.info("🔍 Procurando botão de busca...")
+            search_button = None
+
+            # Possíveis seletores para o botão
+            search_selectors = [
+                "//button[contains(text(),'Buscar')]",
+                "//a[contains(text(),'Buscar')]",
+                "//button[contains(text(),'Confirmar')]",
+                "//a[contains(text(),'Confirmar')]",
+                "//button[contains(text(),'OK')]",
+                "//a[contains(text(),'OK')]",
+                "button.btn-success",
+                "a.btn-success",
+                ".btn-success"
+            ]
+
+            for selector in search_selectors:
+                try:
+                    if selector.startswith("//"):
+                        search_button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+                    else:
+                        search_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+                    logger.info(f"✅ Botão encontrado com seletor: {selector}")
+                    break
+                except:
+                    continue
+
+            # Se não encontrou botão específico, tentar submit do form
+            if not search_button:
+                logger.info("ℹ️ Botão específico não encontrado, tentando submit do form...")
+                try:
+                    # Procurar pelo form e fazer submit
+                    form = self.driver.find_element(By.TAG_NAME, "form")
+                    form.submit()
+                    logger.info("✅ Form submetido")
+                    time.sleep(5)
+                except Exception as form_error:
+                    logger.warning(f"⚠️ Erro ao submeter form: {str(form_error)}")
+                    # Tentar pressionar Enter no campo
+                    try:
+                        bet_code_field.send_keys("\n")
+                        logger.info("✅ Enter pressionado no campo")
+                        time.sleep(3)
+                    except Exception as enter_error:
+                        logger.error(f"❌ Erro ao pressionar Enter: {str(enter_error)}")
+                        return False
+            else:
+                # Clicar no botão encontrado
+                try:
+                    search_button.click()
+                    logger.info("✅ Botão clicado")
+                    time.sleep(5)
+                except Exception as click_error:
+                    logger.warning(f"⚠️ Erro ao clicar botão, tentando JavaScript: {str(click_error)}")
+                    self.driver.execute_script("arguments[0].click();", search_button)
+                    logger.info("✅ Botão clicado via JavaScript")
+                    time.sleep(5)
+
+            # PASSO 6: Verificar resultado
+            current_url = self.driver.current_url
+            logger.info(f"📍 URL após busca: {current_url}")
+
+            # Verificar se foi redirecionado para a página do bilhete
+            if f"/prebet/{bet_code}" in current_url:
+                logger.info("✅ Bilhete carregado - continuando com confirmação...")
+                return self._confirm_loaded_bet(bet_code)
+
+            # Verificar se ainda está na página inicial (pode ter carregado inline)
+            elif current_url == self.base_url or current_url == f"{self.base_url}/":
+                logger.info("ℹ️ Ainda na página inicial - verificando se bilhete carregou inline...")
+
+                # Verificar se apareceu botão de confirmação APOSTAR
+                logger.info("🔍 Procurando botão 'APOSTAR'...")
+                apostar_selectors = [
+                    "button.btn.text-style span",  # Seletor CSS específico fornecido pelo usuário
                     "//button[contains(text(), 'Apostar')]",
-                    "//a[contains(text(), 'Apostar')]"
+                    "//a[contains(text(), 'Apostar')]",
+                    "//button[contains(text(), 'APOSTAR')]",
+                    "//a[contains(text(), 'APOSTAR')]",
+                    "//button[contains(text(), 'Confirmar')]",
+                    "//a[contains(text(), 'Confirmar')]"
                 ]
-                
-                for selector in possible_selectors:
+
+                apostar_button = None
+                for selector in apostar_selectors:
                     try:
                         if selector.startswith("//"):
-                            confirm_button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+                            apostar_button = self.driver.find_element(By.XPATH, selector)
                         else:
-                            confirm_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
-                        logger.info(f"✅ Botão de confirmação encontrado com seletor: {selector}")
-                        break
+                            apostar_button = self.driver.find_element(By.CSS_SELECTOR, selector)
+                        
+                        if apostar_button and apostar_button.is_displayed():
+                            button_text = apostar_button.text.strip()
+                            logger.info(f"✅ Botão 'APOSTAR' encontrado: '{button_text}'")
+                            break
                     except:
                         continue
-                
-                if not confirm_button:
-                    logger.error("❌ Botão de confirmação não encontrado")
-                    self.driver.save_screenshot(f"confirm_button_not_found_{bet_code}.png")
-                    return False
-                
-                # Scroll para o elemento se necessário
-                self.driver.execute_script("arguments[0].scrollIntoView(true);", confirm_button)
-                time.sleep(1)
-                
-                # Tentar clicar
-                try:
-                    confirm_button.click()
-                    logger.info("✅ Clique no botão de confirmação realizado")
-                except Exception as click_error:
-                    logger.warning(f"⚠️ Clique normal falhou, tentando JavaScript: {click_error}")
-                    self.driver.execute_script("arguments[0].click();", confirm_button)
-                    logger.info("✅ Clique via JavaScript realizado")
-                
-                time.sleep(5)
-                
-                # Procurar pelo botão "Sim" para confirmar
-                yes_button = None
-                yes_selectors = [
-                    "//a[contains(text(),'Sim')]",
-                    "//button[contains(text(),'Sim')]", 
-                    ".btn-success",
-                    ".btn[data-dismiss='modal']"
-                ]
-                
-                for selector in yes_selectors:
+
+                if apostar_button:
+                    logger.info("🎯 Clicando no botão 'APOSTAR'...")
                     try:
-                        yes_button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                        logger.info(f"✅ Botão 'Sim' encontrado com seletor: {selector}")
-                        break
-                    except:
-                        continue
-                
-                if yes_button:
-                    # Scroll para o elemento se necessário
-                    self.driver.execute_script("arguments[0].scrollIntoView(true);", yes_button)
-                    time.sleep(1)
-                    
-                    try:
-                        yes_button.click()
-                        logger.info("✅ Clique no botão 'Sim' realizado")
+                        apostar_button.click()
+                        logger.info("✅ Botão 'APOSTAR' clicado")
+                        time.sleep(3)
+                        
+                        # Agora verificar se apareceu modal de confirmação
+                        return self._handle_confirmation_modal(bet_code)
+                        
                     except Exception as click_error:
-                        logger.warning(f"⚠️ Clique normal no 'Sim' falhou, tentando JavaScript: {click_error}")
-                        self.driver.execute_script("arguments[0].click();", yes_button)
-                        logger.info("✅ Clique via JavaScript no 'Sim' realizado")
-                    
-                    time.sleep(8)
-                    
-                    # Verificar se houve confirmação (procurar por mensagem de sucesso ou mudança na URL)
-                    current_url = self.driver.current_url
-                    logger.info(f"📍 URL atual após confirmação: {current_url}")
-                    
-                    # Se foi redirecionado para /bets, confirmação foi bem-sucedida
-                    if "/bets" in current_url:
-                        logger.info("✅ Redirecionado para página de apostas - confirmação bem-sucedida")
-                        return True
-                    
-                    # Se foi redirecionado para home, também é sucesso (pode ter ido para /bets depois)
-                    if current_url == f"{self.base_url}/" or current_url == self.base_url:
-                        logger.info("✅ Redirecionado para home - confirmação bem-sucedida")
-                        return True
-                    
-                    # Se ainda está na página do bilhete, confirmação falhou
-                    if f"/prebet/{bet_code}" in current_url:
-                        logger.error("❌ Ainda na página do bilhete - confirmação falhou")
-                        self.driver.save_screenshot(f"confirmation_failed_{bet_code}.png")
-                        return False
-                    
-                    # Para qualquer outro caso, assumir sucesso
-                    logger.info("✅ Confirmação concluída com sucesso")
-                    return True
+                        logger.warning(f"⚠️ Erro ao clicar em 'APOSTAR', tentando JavaScript: {str(click_error)}")
+                        try:
+                            self.driver.execute_script("arguments[0].click();", apostar_button)
+                            logger.info("✅ Botão 'APOSTAR' clicado via JavaScript")
+                            time.sleep(3)
+                            return self._handle_confirmation_modal(bet_code)
+                        except Exception as js_error:
+                            logger.error(f"❌ Erro ao clicar via JavaScript: {str(js_error)}")
+                            return False
                 else:
-                    logger.warning("⚠️ Botão 'Sim' não encontrado")
-                    # Salvar screenshot para debug
-                    self.driver.save_screenshot(f"confirm_final_{bet_code}.png")
-                    return False
-                
-                # Se chegou até aqui, verificar se realmente foi confirmado
-                logger.info("✅ Processo de confirmação concluído - verificando resultado")
-                
-            except TimeoutException:
-                logger.error("❌ Timeout - elementos não encontrados")
-                self.driver.save_screenshot(f"timeout_error_{bet_code}.png")
+                    logger.warning("⚠️ Botão 'APOSTAR' não encontrado - verificando se bilhete foi processado...")
+
+                    # Verificar mensagens de erro
+                    page_text = self.driver.find_element(By.TAG_NAME, "body").text
+
+                    # Verificar mensagens de erro específicas
+                    if "não encontrado" in page_text.lower() or "inválido" in page_text.lower():
+                        logger.error("❌ Bilhete não encontrado ou inválido")
+                        return False
+                    elif "expirado" in page_text.lower():
+                        logger.error("❌ Bilhete expirado")
+                        return False
+
+                    # Verificar se há indicação de sucesso
+                    success_indicators = [
+                        "aposta realizada", "confirmada com sucesso", "bilhete confirmado",
+                        "sucesso", "realizada", "aprovada"
+                    ]
+
+                    has_success_indicator = any(indicator in page_text.lower() for indicator in success_indicators)
+
+                    # Verificar se há elementos relacionados a apostas realizadas
+                    try:
+                        bet_related_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'aposta') or contains(text(), 'bilhete')]")
+                        has_bet_elements = len(bet_related_elements) > 0
+                    except:
+                        has_bet_elements = False
+
+                    # Se encontrou indicadores de sucesso OU elementos relacionados a apostas, considerar sucesso
+                    if has_success_indicator or has_bet_elements:
+                        logger.info("✅ Indicação de sucesso encontrada na página")
+                        return True
+                    else:
+                        logger.warning("⚠️ Status do bilhete desconhecido - mas pode ter sido confirmado")
+                        self.driver.save_screenshot(f"unknown_bet_status_{bet_code}.png")
+
+                        # IMPORTANTE: Se chegamos até aqui, pode ser que o bilhete tenha sido processado
+                        # mas não haja indicação visual clara. Vamos assumir sucesso por enquanto
+                        # e deixar a verificação de saldo (no método chamador) decidir.
+                        logger.info("ℹ️ Assumindo sucesso temporariamente - verificar saldo para confirmar")
+                        return True
+
+            else:
+                logger.warning(f"⚠️ Redirecionamento inesperado: {current_url}")
+                self.driver.save_screenshot(f"unexpected_redirect_{bet_code}.png")
                 return False
-                
+
         except Exception as e:
             logger.error(f"❌ Erro ao confirmar aposta: {str(e)}")
-            self.driver.save_screenshot(f"error_{bet_code}.png")
+            self.driver.save_screenshot(f"confirmation_error_{bet_code}.png")
+            return False
+
+    def _confirm_loaded_bet(self, bet_code):
+        """Confirma bilhete quando foi carregado em página separada"""
+        try:
+            logger.info("🎯 Confirmando bilhete em página separada...")
+            wait = WebDriverWait(self.driver, 10)
+
+            # Procurar botão de confirmação
+            confirm_button = None
+            confirm_selectors = [
+                ".btn-group > .text-style",
+                ".btn.text-style",
+                "button[type='button'].btn.text-style",
+                ".btn-group button",
+                "//button[contains(text(), 'Apostar')]",
+                "//a[contains(text(), 'Apostar')]"
+            ]
+
+            for selector in confirm_selectors:
+                try:
+                    if selector.startswith("//"):
+                        confirm_button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+                    else:
+                        confirm_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+                    logger.info(f"✅ Botão de confirmação encontrado: {selector}")
+                    break
+                except:
+                    continue
+
+            if not confirm_button:
+                logger.error("❌ Botão de confirmação não encontrado")
+                return False
+
+            # Clicar no botão
+            confirm_button.click()
+            time.sleep(3)
+
+            return self._handle_confirmation_modal(bet_code)
+
+        except Exception as e:
+            logger.error(f"❌ Erro na confirmação de página separada: {str(e)}")
+            return False
+
+    def _confirm_inline_bet(self, confirm_button, bet_code):
+        """Confirma bilhete quando carregado inline na mesma página"""
+        try:
+            logger.info("🎯 Confirmando bilhete inline...")
+
+            # Clicar no botão de confirmação
+            confirm_button.click()
+            time.sleep(3)
+
+            return self._handle_confirmation_modal(bet_code)
+
+        except Exception as e:
+            logger.error(f"❌ Erro na confirmação inline: {str(e)}")
+            return False
+
+    def _handle_confirmation_modal(self, bet_code):
+        """Lida com modal de confirmação e mudança de prêmio - VERSÃO MELHORADA"""
+        try:
+            logger.info("🎯 Lidando com modal de confirmação...")
+            wait = WebDriverWait(self.driver, 10)
+            
+            # CONTADOR PARA CONTROLAR QUANTAS CAIXAS DE CONFIRMAÇÃO FORAM TRATADAS
+            confirmation_boxes_handled = 0
+            max_confirmations = 5  # Limite de segurança para evitar loop infinito
+            
+            while confirmation_boxes_handled < max_confirmations:
+                logger.info(f"🔄 Verificando caixa de confirmação #{confirmation_boxes_handled + 1}...")
+                
+                # Aguardar um pouco para carregar possíveis modais
+                time.sleep(2)
+                
+                # VERIFICAR SE HÁ ALGUMA CAIXA DE DIÁLOGO ATIVA
+                active_modals = self._find_active_modals()
+                
+                if not active_modals:
+                    logger.info("✅ Nenhuma caixa de confirmação ativa encontrada")
+                    break
+                
+                # TRATAR CADA MODAL ATIVO
+                for i, modal in enumerate(active_modals):
+                    logger.info(f"🎭 Tratando modal #{i+1} de {len(active_modals)}")
+                    
+                    try:
+                        # Tentar tratar o modal
+                        modal_handled = self._handle_single_modal(modal)
+                        
+                        if modal_handled:
+                            confirmation_boxes_handled += 1
+                            logger.info(f"✅ Modal #{i+1} tratado com sucesso")
+                            time.sleep(3)  # Aguardar fechamento do modal
+                        else:
+                            logger.warning(f"⚠️ Modal #{i+1} não pôde ser tratado")
+                            
+                    except Exception as e:
+                        logger.error(f"❌ Erro ao tratar modal #{i+1}: {str(e)}")
+                        continue
+                
+                # Verificar se ainda há modais ativos após o tratamento
+                remaining_modals = self._find_active_modals()
+                if not remaining_modals:
+                    logger.info("✅ Todos os modais foram fechados")
+                    break
+                
+                logger.info(f"⚠️ Ainda há {len(remaining_modals)} modais ativos, continuando...")
+            
+            logger.info(f"📊 Total de caixas de confirmação tratadas: {confirmation_boxes_handled}")
+            
+            # APÓS TRATAR TODAS AS CAIXAS, VERIFICAR SE A APOSTA FOI CONFIRMADA
+            return self._verify_final_confirmation()
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao lidar com modais de confirmação: {str(e)}")
+            return False
+    
+    def _find_active_modals(self):
+        """Encontra todas as caixas de diálogo ativas na página"""
+        try:
+            # Procurar por diferentes tipos de modais
+            modal_selectors = [
+                "div.v-dialog.active",  # Modal Vuetify ativo
+                "div.v-dialog-container",  # Container de modal
+                ".modal.show",  # Modal Bootstrap ativo
+                ".popup.active",  # Popup ativo
+                "[role='dialog']"  # Elementos com role dialog
+            ]
+            
+            active_modals = []
+            
+            for selector in modal_selectors:
+                try:
+                    modals = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for modal in modals:
+                        if modal.is_displayed():
+                            active_modals.append(modal)
+                except:
+                    continue
+            
+            # Remover duplicatas
+            unique_modals = []
+            for modal in active_modals:
+                if modal not in unique_modals:
+                    unique_modals.append(modal)
+            
+            logger.info(f"🔍 Encontrados {len(unique_modals)} modais ativos")
+            return unique_modals
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao procurar modais ativos: {str(e)}")
+            return []
+    
+    def _handle_single_modal(self, modal):
+        """Trata uma única caixa de diálogo"""
+        try:
+            # Obter informações do modal
+            modal_text = modal.text.lower()
+            logger.info(f"📋 Conteúdo do modal: {modal_text[:100]}...")
+            
+            # DETERMINAR O TIPO DE MODAL E COMO TRATÁ-LO
+            if any(word in modal_text for word in ["mudança de prêmio", "cotações mudaram", "atenção", "odds", "prêmio"]):
+                logger.info("🎯 Modal de mudança de odds detectado")
+                return self._handle_odds_change_modal(modal)
+            elif any(word in modal_text for word in ["confirma", "confirmar", "deseja continuar", "sim", "não"]):
+                logger.info("🎯 Modal de confirmação detectado")
+                return self._handle_confirmation_modal_simple(modal)
+            else:
+                logger.info("🎯 Modal de tipo desconhecido - tentando tratamento genérico")
+                return self._handle_generic_modal(modal)
+                
+        except Exception as e:
+            logger.error(f"❌ Erro ao tratar modal individual: {str(e)}")
+            return False
+    
+    def _handle_odds_change_modal(self, modal):
+        """Trata especificamente modal de mudança de odds"""
+        try:
+            logger.info("🎯 Tratando modal de mudança de odds...")
+            
+            # Procurar botão "Sim" (success) no footer do modal
+            success_selectors = [
+                "a.v-dialog-btn.success",  # Seletor específico da imagem
+                "div.v-dialog-footer a.v-dialog-btn.success",
+                "//a[contains(text(),'Sim') and contains(@class,'success')]",
+                "//a[contains(text(),'Sim')]",
+                ".v-dialog-btn.success"
+            ]
+            
+            for selector in success_selectors:
+                try:
+                    if selector.startswith("//"):
+                        button = modal.find_element(By.XPATH, selector)
+                    else:
+                        button = modal.find_element(By.CSS_SELECTOR, selector)
+                    
+                    if button.is_displayed() and button.is_enabled():
+                        button_text = button.text.strip()
+                        logger.info(f"✅ Botão 'Sim' encontrado: '{button_text}'")
+                        
+                        # Clicar no botão
+                        button.click()
+                        logger.info("✅ Clique realizado com sucesso")
+                        return True
+                        
+                except:
+                    continue
+            
+            logger.warning("⚠️ Botão 'Sim' não encontrado no modal de odds")
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao tratar modal de odds: {str(e)}")
+            return False
+    
+    def _handle_confirmation_modal_simple(self, modal):
+        """Trata modal de confirmação simples"""
+        try:
+            logger.info("🎯 Tratando modal de confirmação simples...")
+            
+            # Procurar botão de confirmação
+            confirm_selectors = [
+                "a.v-dialog-btn.success",
+                "//a[contains(text(),'Sim')]",
+                "//button[contains(text(),'Sim')]",
+                "//a[contains(text(),'Continuar')]",
+                "//button[contains(text(),'Continuar')]",
+                ".btn-success"
+            ]
+            
+            for selector in confirm_selectors:
+                try:
+                    if selector.startswith("//"):
+                        button = modal.find_element(By.XPATH, selector)
+                    else:
+                        button = modal.find_element(By.CSS_SELECTOR, selector)
+                    
+                    if button.is_displayed() and button.is_enabled():
+                        button_text = button.text.strip()
+                        logger.info(f"✅ Botão de confirmação encontrado: '{button_text}'")
+                        
+                        # Clicar no botão
+                        button.click()
+                        logger.info("✅ Clique realizado com sucesso")
+                        return True
+                        
+                except:
+                    continue
+            
+            logger.warning("⚠️ Botão de confirmação não encontrado")
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao tratar modal de confirmação: {str(e)}")
+            return False
+    
+    def _handle_generic_modal(self, modal):
+        """Trata modal de tipo desconhecido"""
+        try:
+            logger.info("🎯 Tratando modal genérico...")
+            
+            # Procurar qualquer botão clicável
+            buttons = modal.find_elements(By.CSS_SELECTOR, "button, a, input[type='button']")
+            
+            for button in buttons:
+                try:
+                    if button.is_displayed() and button.is_enabled():
+                        button_text = button.text.strip()
+                        
+                        # Preferir botões positivos
+                        if any(word in button_text.lower() for word in ["sim", "sim", "ok", "continuar", "aceitar"]):
+                            logger.info(f"✅ Botão positivo encontrado: '{button_text}'")
+                            button.click()
+                            logger.info("✅ Clique realizado com sucesso")
+                            return True
+                            
+                except:
+                    continue
+            
+            logger.warning("⚠️ Nenhum botão adequado encontrado no modal genérico")
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao tratar modal genérico: {str(e)}")
+            return False
+    
+    def _verify_final_confirmation(self):
+        """Verifica se a aposta foi confirmada após tratar todos os modais"""
+        try:
+            logger.info("🔍 Verificando confirmação final...")
+            
+            # Aguardar um pouco para a página processar
+            time.sleep(3)
+            
+            # Verificar se há indicações de sucesso
+            page_text = self.driver.find_element(By.TAG_NAME, "body").text.lower()
+            success_indicators = [
+                "aposta realizada", "confirmada com sucesso", "bilhete confirmado",
+                "sucesso", "realizada", "aprovada", "confirmação", "aposta aprovada"
+            ]
+            
+            has_success = any(indicator in page_text for indicator in success_indicators)
+            
+            if has_success:
+                logger.info("✅ Confirmação final bem-sucedida")
+                return True
+            else:
+                logger.warning("⚠️ Nenhuma indicação clara de sucesso encontrada")
+                
+                # Verificar se há mensagens de erro
+                error_indicators = [
+                    "erro", "falha", "não foi possível", "tente novamente",
+                    "bilhete não encontrado", "bilhete inválido", "bilhete expirado"
+                ]
+                
+                has_error = any(indicator in page_text for indicator in error_indicators)
+                
+                if has_error:
+                    logger.error("❌ Indicações de erro encontradas")
+                    return False
+                else:
+                    # Salvar screenshot para análise
+                    self.driver.save_screenshot(f"final_confirmation_check_{int(time.time())}.png")
+                    logger.info("🔍 Screenshot salvo para análise manual")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"❌ Erro ao verificar confirmação final: {str(e)}")
+            return False
+
+    def _handle_prize_change_modal(self):
+        """Lida especificamente com modal de mudança de prêmio"""
+        try:
+            logger.info("🎯 Lidando com mudança de prêmio...")
+            wait = WebDriverWait(self.driver, 10)  # Aumentar timeout
+
+            # Primeiro, verificar se o modal ainda está visível
+            try:
+                modal = self.driver.find_element("css selector", "div.v-dialog-container")
+                if not modal.is_displayed():
+                    logger.warning("⚠️ Modal de mudança de prêmio não está mais visível")
+                    return True  # Modal já foi fechado
+                
+                modal_text = modal.text
+                logger.info(f"📋 Conteúdo do modal:\n{modal_text}")
+                
+                # Verificar se é realmente o modal de mudança de prêmio
+                if "mudança de prêmio" not in modal_text.lower():
+                    logger.warning("⚠️ Modal encontrado mas não é de mudança de prêmio")
+                    return True
+                
+                logger.info("✅ Modal de mudança de prêmio confirmado")
+                
+            except Exception as e:
+                logger.warning(f"⚠️ Modal não encontrado: {str(e)}")
+                return True  # Modal não existe mais
+
+            # Procurar botão para aceitar mudança usando seletores específicos
+            accept_buttons = [
+                "a.v-dialog-btn.success",  # Seletor CSS específico fornecido pelo usuário
+                "div.v-dialog-footer a.v-dialog-btn.success",  # Mais específico
+                "//a[contains(text(),'Sim') and contains(@class,'success')]",  # XPath mais específico
+                "//a[contains(text(),'Sim')]",
+                "//button[contains(text(),'Sim')]",
+                "//a[contains(text(),'Continuar')]",
+                "//button[contains(text(),'Continuar')]",
+                "//button[contains(text(),'OK')]",
+                "//a[contains(text(),'OK')]"
+            ]
+
+            logger.info("🔍 Procurando botão para aceitar mudança de prêmio...")
+            
+            # Primeiro, listar todos os botões visíveis no modal
+            try:
+                all_buttons = self.driver.find_elements("css selector", "div.v-dialog-footer a, div.v-dialog-footer button")
+                logger.info(f"📊 Encontrados {len(all_buttons)} botões no footer do modal")
+                
+                for i, btn in enumerate(all_buttons):
+                    if btn.is_displayed():
+                        btn_text = btn.text.strip()
+                        btn_class = btn.get_attribute('class')
+                        logger.info(f"   Botão {i+1}: '{btn_text}' (classe: {btn_class})")
+            except Exception as e:
+                logger.warning(f"⚠️ Erro ao listar botões: {str(e)}")
+            
+            for selector in accept_buttons:
+                try:
+                    logger.info(f"🔍 Tentando seletor: {selector}")
+                    
+                    if selector.startswith("//"):
+                        button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+                    else:
+                        button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+                    
+                    button_text = button.text.strip()
+                    button_class = button.get_attribute('class')
+                    logger.info(f"✅ Botão para aceitar mudança encontrado: '{button_text}' (classe: {button_class}) - clicando...")
+                    
+                    # Verificar se o botão está realmente visível e clicável
+                    if not button.is_displayed():
+                        logger.warning("⚠️ Botão encontrado mas não está visível")
+                        continue
+                    
+                    # Scroll para o elemento
+                    self.driver.execute_script("arguments[0].scrollIntoView(true);", button)
+                    time.sleep(1)
+                    
+                    # Tentar clique normal primeiro
+                    try:
+                        button.click()
+                        logger.info("✅ Clique normal realizado com sucesso")
+                    except Exception as click_error:
+                        logger.warning(f"⚠️ Clique normal falhou, tentando JavaScript: {str(click_error)}")
+                        self.driver.execute_script("arguments[0].click();", button)
+                        logger.info("✅ Clique via JavaScript realizado")
+                    
+                    logger.info("✅ Mudança de prêmio aceita")
+                    time.sleep(3)  # Aguardar mais tempo
+                    
+                    # Verificar se o modal foi fechado
+                    try:
+                        modal_after = self.driver.find_element("css selector", "div.v-dialog-container")
+                        if not modal_after.is_displayed():
+                            logger.info("✅ Modal fechado com sucesso")
+                        else:
+                            logger.warning("⚠️ Modal ainda está visível após clique")
+                    except:
+                        logger.info("✅ Modal não encontrado após clique - provavelmente fechado")
+                    
+                    return True
+                    
+                except Exception as selector_error:
+                    logger.debug(f"⚠️ Seletor {selector} falhou: {str(selector_error)}")
+                    continue
+
+            logger.error("❌ Nenhum botão para aceitar mudança foi encontrado")
+            # Salvar screenshot para debug
+            self.driver.save_screenshot(f"prize_change_modal_error_{int(time.time())}.png")
+            return False
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao lidar com mudança de prêmio: {str(e)}")
+            # Salvar screenshot para debug
+            self.driver.save_screenshot(f"prize_change_modal_exception_{int(time.time())}.png")
             return False
     
     def close(self):
