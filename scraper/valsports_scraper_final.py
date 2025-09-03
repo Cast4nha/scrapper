@@ -266,8 +266,9 @@ class ValSportsScraper:
             
             logger.info(f"🔍 Encontrados {len(game_elements)} elementos .l-item")
             
-            # Processar apenas os primeiros 15 elementos (ou o número especificado)
-            max_games = min(15, len(game_elements))
+            # Processar TODOS os elementos .l-item encontrados (não limitar a 15)
+            max_games = len(game_elements)
+            logger.info(f"🎯 Processando TODOS os {max_games} jogos encontrados")
             
             for i in range(max_games):
                 try:
