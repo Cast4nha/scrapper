@@ -252,188 +252,89 @@ class ValSportsScraper:
             return None
     
     def _extract_games_dynamically(self):
-        """Extrai jogos usando iteração dinâmica com .find_elements - versão otimizada"""
+        """Extrai jogos usando múltiplas estratégias - VERSÃO SUPER ROBUSTA"""
         games = []
         
         try:
-            logger.info("🎯 Extraindo jogos dinamicamente...")
+            logger.info("🎯 Extraindo jogos com estratégia super robusta...")
             
             # Aguardar um pouco para garantir que a página está carregada
-            time.sleep(2)
+            time.sleep(3)
             
-            # Encontrar todos os elementos .l-item (jogos)
-            game_elements = self.driver.find_elements(By.CSS_SELECTOR, ".l-item")
+            # ESTRATÉGIA 1: Procurar por elementos .l-item
+            logger.info("🔍 ESTRATÉGIA 1: Procurando por elementos .l-item")
+            l_item_elements = self.driver.find_elements(By.CSS_SELECTOR, ".l-item")
+            logger.info(f"   Elementos .l-item encontrados: {len(l_item_elements)}")
             
-            logger.info(f"🔍 Encontrados {len(game_elements)} elementos .l-item")
+            # ESTRATÉGIA 2: Procurar por outros seletores possíveis
+            logger.info("🔍 ESTRATÉGIA 2: Procurando por outros seletores")
+            alternative_selectors = [
+                ".game-item", ".bet-item", ".match-item", ".selection-item",
+                ".palpite-item", ".jogo-item", ".aposta-item", ".item",
+                ".list-item", ".bet-selection", ".game-selection"
+            ]
             
-            # Processar TODOS os elementos .l-item encontrados (não limitar a 15)
-            max_games = len(game_elements)
-            logger.info(f"🎯 Processando TODOS os {max_games} jogos encontrados")
+            all_game_elements = []
+            all_game_elements.extend(l_item_elements)
             
-            for i in range(max_games):
+            for selector in alternative_selectors:
+                elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                if elements:
+                    logger.info(f"   Seletor '{selector}': {len(elements)} elementos")
+                    all_game_elements.extend(elements)
+            
+            # ESTRATÉGIA 3: Procurar por elementos que contêm padrões de jogo
+            logger.info("🔍 ESTRATÉGIA 3: Procurando por padrões de jogo")
+            pattern_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Vencedor:') or contains(text(), 'Empate') or contains(text(), 'Partida')]")
+            if pattern_elements:
+                logger.info(f"   Elementos com padrões de jogo: {len(pattern_elements)}")
+                # Pegar os elementos pai que podem conter o jogo completo
+                for elem in pattern_elements:
+                    try:
+                        parent = elem.find_element(By.XPATH, "./..")
+                        if parent not in all_game_elements:
+                            all_game_elements.append(parent)
+                    except:
+                        continue
+            
+            # Remover duplicatas
+            unique_elements = []
+            seen_texts = set()
+            for elem in all_game_elements:
                 try:
-                    logger.info(f"🎮 Processando jogo {i+1}...")
+                    text = elem.text.strip()
+                    if text and text not in seen_texts and len(text) > 20:
+                        unique_elements.append(elem)
+                        seen_texts.add(text)
+                except:
+                    continue
+            
+            logger.info(f"🎯 Total de elementos únicos encontrados: {len(unique_elements)}")
+            
+            # Processar todos os elementos encontrados
+            for i, game_element in enumerate(unique_elements):
+                try:
+                    logger.info(f"🎮 Processando elemento {i+1}...")
                     
-                    # Recarregar o elemento para evitar stale reference
-                    game_elements = self.driver.find_elements(By.CSS_SELECTOR, ".l-item")
-                    if i >= len(game_elements):
-                        break
+                    # Capturar texto completo
+                    full_text = game_element.text.strip()
+                    logger.info(f"   📝 Texto completo: {full_text[:150]}...")
                     
-                    game_element = game_elements[i]
+                    # Verificar se este elemento contém dados de jogo válidos
+                    if not self._is_valid_game_element(full_text):
+                        logger.info(f"   ⏭️ Elemento {i+1} não é um jogo válido - pulando")
+                        continue
                     
-                    # Capturar texto completo primeiro
-                    full_text = game_element.text
-                    logger.info(f"   📝 Texto completo do jogo {i+1}: {full_text[:100]}...")
+                    game_data = self._extract_game_data_from_text(full_text, i+1)
                     
-                    game_data = {
-                        'game_number': i+1,
-                        'league': '',
-                        'home_team': '',
-                        'away_team': '',
-                        'selection': '',
-                        'odds': '',
-                        'datetime': ''
-                    }
-                    
-                    # Extrair dados usando regex do texto completo
-                    try:
-                        # Extrair liga (primeira linha geralmente)
-                        lines = full_text.split('\n')
-                        if lines:
-                            game_data['league'] = lines[0].strip()
-                            logger.info(f"   Liga: {game_data['league']}")
-                    except Exception as e:
-                        logger.warning(f"   ⚠️ Erro ao extrair liga: {str(e)}")
-                    
-                    try:
-                        # Extrair data/hora
-                        datetime_match = re.search(r'(\d{2}/\d{2}\s+\d{2}:\d{2})', full_text)
-                        if datetime_match:
-                            game_data['datetime'] = datetime_match.group(1)
-                            logger.info(f"   Data/Hora: {game_data['datetime']}")
-                    except Exception as e:
-                        logger.warning(f"   ⚠️ Erro ao extrair data/hora: {str(e)}")
-                    
-                    # 3. Extrair times - PROCURAR POR ELEMENTOS SEPARADOS
-                    try:
-                        logger.info(f"   🔍 PROCURANDO TIMES NO JOGO {i+1}...")
-                        
-                        # Procurar por todas as divs com text-truncate que podem conter times
-                        team_elements = game_element.find_elements(By.CSS_SELECTOR, ".text-truncate")
-                        logger.info(f"   📋 Elementos .text-truncate encontrados: {len(team_elements)}")
-                        
-                        home_team = ""
-                        away_team = ""
-                        
-                        for j, team_element in enumerate(team_elements):
-                            team_text = team_element.text.strip()
-                            team_class = team_element.get_attribute('class')
-                            logger.info(f"     Elemento {j+1}: '{team_text}' (classe: {team_class})")
-                            
-                            # Pular se contém palavras-chave que não são times
-                            if any(keyword in team_text.lower() for keyword in ['vencedor:', 'empate', 'odds', 'brasil:', 'colômbia:', 'copa', 'série']):
-                                logger.info(f"       ⏭️ Pulado (palavra-chave): {team_text}")
-                                continue
-                            
-                            # Pular se é a liga (já extraída)
-                            if team_text == game_data['league']:
-                                logger.info(f"       ⏭️ Pulado (liga): {team_text}")
-                                continue
-                            
-                            # Pular se é a seleção (já extraída)
-                            if 'vencedor:' in team_text.lower():
-                                logger.info(f"       ⏭️ Pulado (seleção): {team_text}")
-                                continue
-                            
-                            # Pular se é a data/hora (já extraída)
-                            if re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', team_text):
-                                logger.info(f"       ⏭️ Pulado (data/hora): {team_text}")
-                                continue
-                            
-                            # Pular se é odds (já extraída)
-                            if re.search(r'^\d+\.\d+$', team_text):
-                                logger.info(f"       ⏭️ Pulado (odds): {team_text}")
-                                continue
-                            
-                            # Se não é nenhum dos acima, é um time
-                            if not home_team:
-                                home_team = team_text
-                                logger.info(f"       🏠 Time da casa identificado: {home_team}")
-                            elif not away_team:
-                                away_team = team_text
-                                logger.info(f"       ✈️ Time visitante identificado: {away_team}")
-                                break  # Já temos os dois times
-                        
-                        game_data['home_team'] = home_team
-                        game_data['away_team'] = away_team
-                        
-                        if home_team and away_team:
-                            logger.info(f"   ✅ Times extraídos com sucesso: {home_team} x {away_team}")
-                        else:
-                            logger.warning(f"   ⚠️ Times não encontrados: casa='{home_team}', visitante='{away_team}'")
-                            
-                            # Tentar método alternativo - procurar por todos os elementos
-                            logger.info(f"   🔍 TENTANDO MÉTODO ALTERNATIVO...")
-                            all_elements = game_element.find_elements(By.CSS_SELECTOR, "*")
-                            potential_teams = []
-                            
-                            for elem in all_elements:
-                                try:
-                                    text = elem.text.strip()
-                                    if text and len(text) > 2 and not any(keyword in text.lower() for keyword in ['vencedor:', 'empate', 'odds', 'brasil:', 'colômbia:', 'copa', 'série', 'r$', 'total']):
-                                        # Verificar se parece ser um nome de time
-                                        if re.search(r'^[A-Za-zÀ-ÿ\s]+$', text) and len(text.split()) >= 1:
-                                            potential_teams.append(text)
-                                except:
-                                    continue
-                            
-                            logger.info(f"   🎯 Possíveis times encontrados: {potential_teams}")
-                            
-                            # Se encontrou times potenciais, usar os primeiros dois
-                            if len(potential_teams) >= 2:
-                                game_data['home_team'] = potential_teams[0]
-                                game_data['away_team'] = potential_teams[1]
-                                logger.info(f"   ✅ Times extraídos via método alternativo: {potential_teams[0]} x {potential_teams[1]}")
-                    
-                    except Exception as e:
-                        logger.warning(f"   ⚠️ Erro ao extrair times: {str(e)}")
-                    
-                    try:
-                        # Extrair seleção (padrão: "Vencedor: Time" ou "Empate")
-                        if 'Vencedor:' in full_text:
-                            selection_match = re.search(r'Vencedor:\s*([A-Za-zÀ-ÿ\s]+)', full_text)
-                            if selection_match:
-                                game_data['selection'] = f"Vencedor: {selection_match.group(1).strip()}"
-                        elif 'Empate' in full_text:
-                            game_data['selection'] = "Empate"
-                        logger.info(f"   Seleção: {game_data['selection']}")
-                    except Exception as e:
-                        logger.warning(f"   ⚠️ Erro ao extrair seleção: {str(e)}")
-                    
-                    try:
-                        # Extrair odds (padrão: número decimal)
-                        odds_match = re.search(r'\b(\d+\.\d+)\b', full_text)
-                        if odds_match:
-                            game_data['odds'] = odds_match.group(1)
-                            logger.info(f"   Odds: {game_data['odds']}")
-                    except Exception as e:
-                        logger.warning(f"   ⚠️ Erro ao extrair odds: {str(e)}")
-                    
-                    # Validar se tem dados mínimos (odds e seleção são obrigatórios)
-                    if game_data['odds'] and game_data['selection']:
-                        # Formatar dados
-                        if game_data['home_team'] and game_data['away_team']:
-                            game_data['teams'] = f"{game_data['home_team']} x {game_data['away_team']}"
-                        else:
-                            game_data['teams'] = "Times não identificados"
-                        
+                    if game_data and game_data.get('odds') and game_data.get('selection'):
                         games.append(game_data)
-                        logger.info(f"   ✅ Jogo {i+1} adicionado")
+                        logger.info(f"   ✅ Jogo {i+1} adicionado: {game_data.get('teams', 'N/A')}")
                     else:
-                        logger.warning(f"   ⚠️ Jogo {i+1} sem dados suficientes - ignorando")
+                        logger.info(f"   ⚠️ Elemento {i+1} sem dados suficientes - ignorando")
                 
                 except Exception as e:
-                    logger.error(f"   ❌ Erro ao processar jogo {i+1}: {str(e)}")
+                    logger.error(f"   ❌ Erro ao processar elemento {i+1}: {str(e)}")
                     continue
             
             logger.info(f"🎮 Total de jogos válidos extraídos: {len(games)}")
@@ -442,6 +343,79 @@ class ValSportsScraper:
             logger.error(f"❌ Erro na extração dinâmica: {str(e)}")
         
         return games
+    
+    def _is_valid_game_element(self, text):
+        """Verifica se o texto contém dados de jogo válidos"""
+        if not text or len(text) < 20:
+            return False
+        
+        # Deve conter pelo menos um dos padrões de jogo
+        patterns = [
+            r'Vencedor:', r'Empate', r'Partida', r'Total de gols',
+            r'\d{2}/\d{2}\s+\d{2}:\d{2}',  # Data/hora
+            r'\d+\.\d+',  # Odds
+            r'[A-Za-zÀ-ÿ\s]+x\s+[A-Za-zÀ-ÿ\s]+'  # Times
+        ]
+        
+        pattern_count = sum(1 for pattern in patterns if re.search(pattern, text))
+        return pattern_count >= 2  # Pelo menos 2 padrões devem estar presentes
+    
+    def _extract_game_data_from_text(self, text, game_number):
+        """Extrai dados do jogo a partir do texto"""
+        try:
+            game_data = {
+                'game_number': game_number,
+                'league': '',
+                'home_team': '',
+                'away_team': '',
+                'selection': '',
+                'odds': '',
+                'datetime': ''
+            }
+            
+            # Extrair liga (primeira linha que não é data/hora)
+            lines = text.split('\n')
+            for line in lines:
+                line = line.strip()
+                if line and not re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', line) and not re.search(r'^\d+\.\d+$', line):
+                    if not any(keyword in line.lower() for keyword in ['vencedor:', 'empate', 'partida', 'total']):
+                        game_data['league'] = line
+                        break
+            
+            # Extrair data/hora
+            datetime_match = re.search(r'(\d{2}/\d{2}\s+\d{2}:\d{2})', text)
+            if datetime_match:
+                game_data['datetime'] = datetime_match.group(1)
+            
+            # Extrair times - procurar por padrão "Time1 x Time2"
+            teams_match = re.search(r'([A-Za-zÀ-ÿ\s]+(?:\s+[A-Za-zÀ-ÿ]+)*)\s+x\s+([A-Za-zÀ-ÿ\s]+(?:\s+[A-Za-zÀ-ÿ\s]+)*)', text)
+            if teams_match:
+                game_data['home_team'] = teams_match.group(1).strip()
+                game_data['away_team'] = teams_match.group(2).strip()
+                game_data['teams'] = f"{game_data['home_team']} x {game_data['away_team']}"
+            
+            # Extrair seleção
+            if 'Vencedor:' in text:
+                selection_match = re.search(r'Vencedor:\s*([A-Za-zÀ-ÿ\s]+)', text)
+                if selection_match:
+                    game_data['selection'] = f"Vencedor: {selection_match.group(1).strip()}"
+            elif 'Empate' in text:
+                game_data['selection'] = "Empate"
+            elif 'Partida' in text:
+                partida_match = re.search(r'Partida\s*-\s*([^0-9]+)', text)
+                if partida_match:
+                    game_data['selection'] = f"Partida - {partida_match.group(1).strip()}"
+            
+            # Extrair odds
+            odds_match = re.search(r'\b(\d+\.\d+)\b', text)
+            if odds_match:
+                game_data['odds'] = odds_match.group(1)
+            
+            return game_data
+            
+        except Exception as e:
+            logger.error(f"   ❌ Erro ao extrair dados do jogo: {str(e)}")
+            return None
     
     def _extract_games_with_real_selectors(self):
         """Extrai jogos usando seletores baseados no HTML real fornecido pelo usuário - VERSÃO OTIMIZADA PARA MÚLTIPLAS APOSTAS"""
