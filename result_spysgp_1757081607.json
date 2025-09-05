@@ -1,0 +1,67 @@
+{
+  "success": true,
+  "bet_code": "spysgp",
+  "data": {
+    "bet_code": "spysgp",
+    "total_games": 5,
+    "total_odds": "111,88",
+    "possible_prize": "R$ 223,76",
+    "bettor_name": "Felipe",
+    "bet_value": "2",
+    "games": [
+      {
+        "game_number": 1,
+        "league": "África: Qualificação Mundial",
+        "home_team": "Djibouti",
+        "away_team": "Burquina Faso",
+        "teams": "Djibouti x Burquina Faso",
+        "datetime": "05/09 13:00",
+        "selection": "Vencedor: Djibouti",
+        "odds": "28.13"
+      },
+      {
+        "game_number": 2,
+        "league": "África: Qualificação Mundial",
+        "home_team": "Benim",
+        "away_team": "Zimbabué",
+        "teams": "Benim x Zimbabué",
+        "datetime": "05/09 13:00",
+        "selection": "Vencedor: Benim",
+        "odds": "2.23"
+      },
+      {
+        "game_number": 3,
+        "league": "África: Qualificação Mundial",
+        "home_team": "Lesoto",
+        "away_team": "África do Sul",
+        "teams": "Lesoto x África do Sul",
+        "datetime": "05/09 13:00",
+        "selection": "Vencedor: África do Sul",
+        "odds": "1.25"
+      },
+      {
+        "game_number": 4,
+        "league": "África: Qualificação Mundial",
+        "home_team": "Senegal",
+        "away_team": "Sudão",
+        "teams": "Senegal x Sudão",
+        "datetime": "05/09 13:00",
+        "selection": "Vencedor: Senegal",
+        "odds": "1.23"
+      },
+      {
+        "game_number": 5,
+        "league": "África: Qualificação Mundial",
+        "home_team": "Costa do Marfim",
+        "away_team": "Burundi",
+        "teams": "Costa do Marfim x Burundi",
+        "datetime": "05/09 13:00",
+        "selection": "Vencedor: Costa do Marfim",
+        "odds": "1.16"
+      }
+    ]
+  },
+  "execution_time": "30.65s",
+  "message": "Dados capturados com sucesso",
+  "status": "success"
+}

@@ -1,0 +1,20 @@
+{
+  "bet_code": "yjbw7m",
+  "total_games": 5,
+  "total_odds": "305,48",
+  "possible_prize": "R$ 610,96",
+  "bettor_name": "Marcos",
+  "bet_value": "2",
+  "games": [
+    {
+      "game_number": 1,
+      "league": "África: Qualificação Mundial",
+      "home_team": "CA San Miguel",
+      "away_team": "Almagro",
+      "teams": "CA San Miguel x Almagro",
+      "datetime": "05/09 13:00",
+      "selection": "Vencedor: Independiente Rivadavia",
+      "odds": "3.10"
+    }
+  ]
+}

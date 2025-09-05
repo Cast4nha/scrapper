@@ -1,0 +1,40 @@
+{
+  "bet_code": "cbeo1c",
+  "total_games": 6,
+  "total_odds": "4.381,75",
+  "possible_prize": "R$ 8.763,50",
+  "bettor_name": "Cairo",
+  "bet_value": "2",
+  "games": [
+    {
+      "game_number": 1,
+      "league": "África: Qualificação Mundial",
+      "home_team": "Congo",
+      "away_team": "Tanzânia",
+      "teams": "Congo x Tanzânia",
+      "datetime": "05/09 13:00",
+      "selection": "Vencedor: Congo",
+      "odds": "3.49"
+    },
+    {
+      "game_number": 2,
+      "league": "África: Qualificação Mundial",
+      "home_team": "Senegal",
+      "away_team": "Sudão",
+      "teams": "Senegal x Sudão",
+      "datetime": "05/09 13:00",
+      "selection": "Vencedor: FC Cartagena",
+      "odds": "2.14"
+    },
+    {
+      "game_number": 3,
+      "league": "África: Qualificação Mundial",
+      "home_team": "Caldas SC",
+      "away_team": "AD Portomosense",
+      "teams": "Caldas SC x AD Portomosense",
+      "datetime": "05/09 13:00",
+      "selection": "Vencedor: JS Saoura",
+      "odds": "1.62"
+    }
+  ]
+}

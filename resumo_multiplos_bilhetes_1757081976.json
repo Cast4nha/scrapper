@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "bilhetes_testados": [
+    "ebg2cq",
+    "spysgp"
+  ],
+  "resultados": {
+    "ebg2cq": {
+      "captura": "Sucesso",
+      "jogos": 9,
+      "odds": "12.536,51",
+      "premio": "R$ 25.073,03",
+      "confirmacao": "Confirmado",
+      "arquivo": "capture_ebg2cq_1757081908.json"
+    },
+    "spysgp": {
+      "captura": "Sucesso",
+      "jogos": 5,
+      "odds": "111,88",
+      "premio": "R$ 223,76",
+      "confirmacao": "Confirmado",
+      "arquivo": "capture_spysgp_1757081955.json"
+    }
+  },
+  "execution_time": "98.67s",
+  "timestamp": 1757081976,
+  "message": "Teste de múltiplos bilhetes concluído"
+}

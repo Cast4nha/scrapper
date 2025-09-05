@@ -1,0 +1,58 @@
+{
+  "bet_code": "c3sh1r",
+  "data": {
+    "bet_code": "c3sh1r",
+    "bet_value": "2",
+    "bettor_name": "Felipe",
+    "games": [
+      {
+        "away_team": "Comoros",
+        "datetime": "04/09 16:00",
+        "game_number": 12,
+        "home_team": "Mali",
+        "league": "África: Qualificação Mundial",
+        "odds_list": [
+          "1.38"
+        ],
+        "selections": [
+          "Vencedor: Mali"
+        ],
+        "teams": "Mali x Comoros"
+      },
+      {
+        "away_team": "Essuatíni",
+        "datetime": "04/09 16:00",
+        "game_number": 13,
+        "home_team": "Camarões",
+        "league": "África: Qualificação Mundial",
+        "odds_list": [
+          "20.37"
+        ],
+        "selections": [
+          "Vencedor: Essuatíni"
+        ],
+        "teams": "Camarões x Essuatíni"
+      },
+      {
+        "away_team": "Bolívia",
+        "datetime": "04/09 20:30",
+        "game_number": 15,
+        "home_team": "Colômbia",
+        "league": "América do Sul: Eliminatórias da Copa do Mundo",
+        "odds_list": [
+          "1.09"
+        ],
+        "selections": [
+          "Vencedor: Colômbia"
+        ],
+        "teams": "Colômbia x Bolívia"
+      }
+    ],
+    "possible_prize": "R$ 1.000.000,00",
+    "total_games": 12,
+    "total_odds": "500.000,00"
+  },
+  "execution_time": "26.85s",
+  "message": "Dados capturados com sucesso",
+  "status": "success"
+}

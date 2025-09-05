@@ -1,0 +1,56 @@
+{
+  "success": true,
+  "bet_code": "ebg2cq",
+  "data": {
+    "bet_code": "ebg2cq",
+    "total_games": 9,
+    "total_odds": "12.536,51",
+    "possible_prize": "R$ 25.073,03",
+    "bettor_name": "Cairo",
+    "bet_value": "2",
+    "games": [
+      {
+        "game_number": 1,
+        "league": "África: Qualificação Mundial",
+        "home_team": "Mauritânia",
+        "away_team": "Togo",
+        "teams": "Mauritânia x Togo",
+        "datetime": "05/09 13:00",
+        "selection": "Vencedor: Mauritânia",
+        "odds": "2.79"
+      },
+      {
+        "game_number": 2,
+        "league": "África: Qualificação Mundial",
+        "home_team": "Bermuda",
+        "away_team": "Jamaica",
+        "teams": "Bermuda x Jamaica",
+        "datetime": "05/09 13:00",
+        "selection": "Vencedor: Once Caldas",
+        "odds": "2.31"
+      },
+      {
+        "game_number": 3,
+        "league": "África: Qualificação Mundial",
+        "home_team": "Betis Deportivo",
+        "away_team": "Gimnastic",
+        "teams": "Betis Deportivo x Gimnastic",
+        "datetime": "05/09 13:00",
+        "selection": "Vencedor: US Orléans",
+        "odds": "2.14"
+      },
+      {
+        "game_number": 4,
+        "league": "África: Qualificação Mundial",
+        "home_team": "Villefranche",
+        "away_team": "FC Fleury 91",
+        "teams": "Villefranche x FC Fleury 91",
+        "datetime": "05/09 13:00",
+        "selection": "Vencedor: Villefranche",
+        "odds": "2.72"
+      }
+    ]
+  },
+  "timestamp": 1757081908,
+  "message": "Dados capturados com sucesso"
+}

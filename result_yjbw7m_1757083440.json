@@ -1,0 +1,60 @@
+{
+  "bet_code": "yjbw7m",
+  "total_games": 5,
+  "total_odds": "305,48",
+  "possible_prize": "R$ 610,96",
+  "bettor_name": "Marcos",
+  "bet_value": "2",
+  "games": [
+    {
+      "game_number": 1,
+      "league": "Argentina: Nacional B",
+      "home_team": "CA San Miguel",
+      "away_team": "Almagro",
+      "teams": "CA San Miguel x Almagro",
+      "datetime": "05/09 15:30",
+      "selection": "Empate",
+      "odds": "2.98"
+    },
+    {
+      "game_number": 2,
+      "league": "Argentina: Copa",
+      "home_team": "Tigre",
+      "away_team": "Independiente Rivadavia",
+      "teams": "Tigre x Independiente Rivadavia",
+      "datetime": "05/09 21:10",
+      "selection": "Vencedor: Independiente Rivadavia",
+      "odds": "3.10"
+    },
+    {
+      "game_number": 3,
+      "league": "Argélia: Divisão 1",
+      "home_team": "MC Oran",
+      "away_team": "ES Mostaganem",
+      "teams": "MC Oran x ES Mostaganem",
+      "datetime": "05/09 15:00",
+      "selection": "Empate",
+      "odds": "3.07"
+    },
+    {
+      "game_number": 4,
+      "league": "Alemanha: Regionalliga Oeste",
+      "home_team": "Bonner SC",
+      "away_team": "Fortuna Cologne",
+      "teams": "Bonner SC x Fortuna Cologne",
+      "datetime": "05/09 14:30",
+      "selection": "Empate",
+      "odds": "3.74"
+    },
+    {
+      "game_number": 5,
+      "league": "Argélia: Divisão 1",
+      "home_team": "CS Constantine",
+      "away_team": "MB Rouissat",
+      "teams": "CS Constantine x MB Rouissat",
+      "datetime": "05/09 14:00",
+      "selection": "Empate",
+      "odds": "2.88"
+    }
+  ]
+}
