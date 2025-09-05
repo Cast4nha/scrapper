@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "bet_code": "spysgp",
+  "data": {
+    "bet_code": "spysgp",
+    "total_games": 5,
+    "total_odds": "111,88",
+    "possible_prize": "R$ 223,76",
+    "bettor_name": "Felipe",
+    "bet_value": "2",
+    "games": []
+  },
+  "execution_time": "23.34s",
+  "message": "Dados capturados com sucesso",
+  "status": "success"
+}

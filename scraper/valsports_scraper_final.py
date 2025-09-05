@@ -64,7 +64,7 @@ class ValSportsScraper:
             
             # 1. open on https://www.valsports.net/login
             self.driver.get(f"{self.base_url}/login")
-            time.sleep(2)  # Reduzido para melhorar performance
+            time.sleep(2)  # Mantido para login estável
             
             # Aguardar carregamento da página
             wait = WebDriverWait(self.driver, 15)
@@ -85,7 +85,7 @@ class ValSportsScraper:
             # 5. click on css=.btn-success
             login_button = self.driver.find_element(By.CSS_SELECTOR, ".btn-success")
             login_button.click()
-            time.sleep(3)  # Reduzido para melhorar performance
+            time.sleep(2)  # Mantido para login estável
             
             # Verificar se o login foi bem-sucedido
             if "betsnow.net" in self.driver.current_url:
@@ -136,8 +136,8 @@ class ValSportsScraper:
             logger.info(f"🌐 Navegando para: {bet_url}")
             self.driver.get(bet_url)
             
-            # Aguardar página carregar (reduzido)
-            time.sleep(5)
+            # Aguardar página carregar (otimizado agressivamente)
+            time.sleep(2)
             
             # Aguardar JavaScript carregar
             wait = WebDriverWait(self.driver, 30)
@@ -149,8 +149,8 @@ class ValSportsScraper:
             except TimeoutException:
                 logger.warning("⚠️ Timeout aguardando container - continuando...")
             
-            # Aguardar mais um pouco para garantir (reduzido)
-            time.sleep(2)
+            # Aguardar mais um pouco para garantir (otimizado agressivamente)
+            time.sleep(1)
             
             # Salvar debug
             current_url = self.driver.current_url
@@ -258,8 +258,8 @@ class ValSportsScraper:
         try:
             logger.info("🎯 Extraindo jogos dinamicamente...")
             
-            # Aguardar um pouco para garantir que a página está carregada
-            time.sleep(2)
+            # Aguardar um pouco para garantir que a página está carregada (otimizado agressivamente)
+            time.sleep(1)
             
             # Encontrar todos os elementos .l-item (jogos)
             game_elements = self.driver.find_elements(By.CSS_SELECTOR, ".l-item")
@@ -396,8 +396,17 @@ class ValSportsScraper:
         try:
             logger.info("🎯 Extraindo jogos com seletores reais (MÚLTIPLAS APOSTAS)...")
             
-            # Aguardar menos tempo para carregamento
-            time.sleep(1)
+            # Aguardar menos tempo para carregamento (otimizado agressivamente)
+            time.sleep(0.5)
+            
+            # PRIMEIRO: Tentar extrair do bilhete lateral (bet slip)
+            games = self._extract_games_from_bet_slip()
+            if games:
+                logger.info(f"✅ Extraídos {len(games)} jogos do bilhete lateral")
+                return games
+            
+            # SEGUNDO: Se não encontrou no bilhete lateral, tentar área principal
+            logger.info("⚠️ Bilhete lateral não encontrado, tentando área principal...")
             
             # Encontrar todos os elementos .l-item (jogos) que têm a classe d-block
             game_elements = self.driver.find_elements(By.CSS_SELECTOR, ".l-item.d-block")
@@ -619,6 +628,138 @@ class ValSportsScraper:
         
         return games
     
+    def _extract_games_from_bet_slip(self):
+        """Extrai jogos do bilhete lateral (bet slip) - NOVA FUNÇÃO"""
+        games = []
+        
+        try:
+            logger.info("🎯 Extraindo jogos do bilhete lateral (bet slip)...")
+            
+            # Procurar por elementos do bilhete lateral
+            # Baseado na imagem, o bilhete está no lado direito com "BILHETE 5"
+            bet_slip_selectors = [
+                # Seletores possíveis para o bilhete lateral
+                ".bet-slip",
+                ".ticket-sidebar", 
+                ".right-sidebar",
+                ".col-md-4",
+                ".col-lg-4",
+                ".col-sm-4",
+                "[class*='bet']",
+                "[class*='ticket']",
+                "[class*='slip']"
+            ]
+            
+            bet_slip_element = None
+            for selector in bet_slip_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        # Verificar se contém dados do bilhete
+                        text = element.text
+                        if any(keyword in text for keyword in ['BILHETE', 'Total odds', 'Possível prêmio', 'Felipe', '111,88', '223,76']):
+                            bet_slip_element = element
+                            logger.info(f"✅ Bilhete lateral encontrado com seletor: {selector}")
+                            break
+                    if bet_slip_element:
+                        break
+                except:
+                    continue
+            
+            if not bet_slip_element:
+                logger.warning("⚠️ Bilhete lateral não encontrado")
+                return games
+            
+            # Extrair texto completo do bilhete
+            bet_slip_text = bet_slip_element.text
+            logger.info(f"📝 Texto do bilhete lateral: {bet_slip_text[:200]}...")
+            
+            # Procurar por jogos no texto do bilhete
+            lines = bet_slip_text.split('\n')
+            
+            # Processar linha por linha de forma mais robusta
+            i = 0
+            game_counter = 0
+            
+            while i < len(lines):
+                line = lines[i].strip()
+                logger.info(f"   Linha {i}: '{line}'")
+                
+                # Pular linhas vazias ou de cabeçalho
+                if (not line or 
+                    line.startswith('BILHETE') or 
+                    'Total odds' in line or 
+                    'Possível prêmio' in line or
+                    line.startswith('R$')):
+                    i += 1
+                    continue
+                
+                # Procurar por padrão de jogo: Liga -> Data/Hora -> Time Casa -> Time Fora -> Seleção -> Odds
+                if (':' in line and  # Linha contém liga (ex: "Argentina: Nacional B")
+                    i + 4 < len(lines)):  # Garantir que há linhas suficientes
+                    
+                    league = line
+                    i += 1
+                    
+                    # Próxima linha deve ser data/hora
+                    if i < len(lines) and re.search(r'\d{2}/\d{2}\s+\d{2}:\d{2}', lines[i]):
+                        datetime_str = lines[i].strip()
+                        i += 1
+                        
+                        # Próximas duas linhas devem ser times
+                        if i + 1 < len(lines):
+                            home_team = lines[i].strip()
+                            away_team = lines[i + 1].strip()
+                            i += 2
+                            
+                            # Próxima linha deve ser seleção
+                            selection = ""
+                            if i < len(lines):
+                                selection = lines[i].strip()
+                                i += 1
+                            
+                            # Próxima linha deve ser odds
+                            odds = ""
+                            if i < len(lines) and re.search(r'^\d+\.\d+$', lines[i]):
+                                odds = lines[i].strip()
+                                i += 1
+                            
+                            # Criar jogo se temos dados suficientes
+                            if home_team and away_team and selection and odds:
+                                game_counter += 1
+                                game = {
+                                    'game_number': game_counter,
+                                    'league': league,
+                                    'home_team': home_team,
+                                    'away_team': away_team,
+                                    'teams': f"{home_team} x {away_team}",
+                                    'datetime': datetime_str,
+                                    'selection': selection,
+                                    'odds': odds
+                                }
+                                games.append(game)
+                                logger.info(f"🎮 Jogo {game_counter}: {game['teams']}")
+                                logger.info(f"   Liga: {league}")
+                                logger.info(f"   Data/Hora: {datetime_str}")
+                                logger.info(f"   Seleção: {selection}")
+                                logger.info(f"   Odds: {odds}")
+                                logger.info(f"   ✅ Jogo {game_counter} adicionado ao bilhete")
+                            else:
+                                logger.warning(f"⚠️ Dados insuficientes para jogo na linha {i}")
+                        else:
+                            logger.warning(f"⚠️ Times não encontrados após liga na linha {i}")
+                    else:
+                        logger.warning(f"⚠️ Data/hora não encontrada após liga na linha {i}")
+                else:
+                    i += 1
+            
+            logger.info(f"🎮 Total de jogos extraídos do bilhete lateral: {len(games)}")
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao extrair jogos do bilhete lateral: {str(e)}")
+        
+        return games
+    
     def confirm_bet(self, bet_code):
         """Confirma a aposta no sistema"""
         try:
@@ -632,7 +773,7 @@ class ValSportsScraper:
             bet_url = f"{self.base_url}/prebet/{bet_code}"
             logger.info(f"🌐 Navegando para: {bet_url}")
             self.driver.get(bet_url)
-            time.sleep(5)
+            time.sleep(1)  # Otimizado agressivamente
             
             # Aguardar carregamento
             wait = WebDriverWait(self.driver, 20)
@@ -668,7 +809,7 @@ class ValSportsScraper:
                 
                 # Scroll para o elemento se necessário
                 self.driver.execute_script("arguments[0].scrollIntoView(true);", confirm_button)
-                time.sleep(1)
+                time.sleep(0.5)  # Otimizado agressivamente
                 
                 # Tentar clicar
                 try:
@@ -679,15 +820,19 @@ class ValSportsScraper:
                     self.driver.execute_script("arguments[0].click();", confirm_button)
                     logger.info("✅ Clique via JavaScript realizado")
                 
-                time.sleep(5)
+                time.sleep(2)  # Otimizado agressivamente
                 
                 # Procurar pelo botão "Sim" para confirmar
                 yes_button = None
                 yes_selectors = [
                     "//a[contains(text(),'Sim')]",
                     "//button[contains(text(),'Sim')]", 
+                    "//a[contains(text(),'SIM')]",
+                    "//button[contains(text(),'SIM')]",
                     ".btn-success",
-                    ".btn[data-dismiss='modal']"
+                    ".btn[data-dismiss='modal']",
+                    "//button[contains(@class, 'btn-success')]",
+                    "//a[contains(@class, 'btn-success')]"
                 ]
                 
                 for selector in yes_selectors:
@@ -698,10 +843,70 @@ class ValSportsScraper:
                     except:
                         continue
                 
+                # Se não encontrou, procurar por pop-ups de mudança de odds
+                if not yes_button:
+                    logger.info("🔍 Procurando por pop-ups de mudança de odds...")
+                    try:
+                        # Seletores específicos para o pop-up de mudança de odds
+                        popup_selectors = [
+                            # Seletores específicos fornecidos pelo usuário
+                            "/html/body/div[3]/div/div[2]/div[3]/a[2]",  # XPath específico
+                            "a.v-dialog-btn:nth-child(2)",  # CSS específico
+                            # Seletores genéricos para pop-ups
+                            "//div[contains(text(), 'Deseja continuar?')]//following-sibling::*//button[contains(text(), 'SIM')]",
+                            "//div[contains(text(), 'Deseja continuar?')]//following-sibling::*//a[contains(text(), 'SIM')]",
+                            "//div[contains(text(), 'Mudança de prêmio')]//following-sibling::*//button[contains(text(), 'SIM')]",
+                            "//div[contains(text(), 'Mudança de prêmio')]//following-sibling::*//a[contains(text(), 'SIM')]",
+                            "//button[contains(text(), 'SIM') and contains(@class, 'btn-success')]",
+                            "//a[contains(text(), 'SIM') and contains(@class, 'btn-success')]",
+                            "//button[contains(text(), 'SIM')]",
+                            "//a[contains(text(), 'SIM')]",
+                            "//button[contains(text(), 'Sim')]",
+                            "//a[contains(text(), 'Sim')]"
+                        ]
+                        
+                        for selector in popup_selectors:
+                            try:
+                                if selector.startswith("/"):
+                                    # XPath
+                                    yes_button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+                                else:
+                                    # CSS
+                                    yes_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+                                logger.info(f"✅ Botão 'SIM' do pop-up encontrado com seletor: {selector}")
+                                break
+                            except:
+                                continue
+                        
+                        # Se ainda não encontrou, tentar procurar por qualquer botão verde
+                        if not yes_button:
+                            logger.info("🔍 Procurando por qualquer botão verde...")
+                            green_button_selectors = [
+                                "//button[contains(@class, 'btn-success')]",
+                                "//a[contains(@class, 'btn-success')]",
+                                "//button[contains(@style, 'green')]",
+                                "//a[contains(@style, 'green')]"
+                            ]
+                            
+                            for selector in green_button_selectors:
+                                try:
+                                    buttons = self.driver.find_elements(By.XPATH, selector)
+                                    for button in buttons:
+                                        if button.is_displayed() and button.is_enabled():
+                                            yes_button = button
+                                            logger.info(f"✅ Botão verde encontrado com seletor: {selector}")
+                                            break
+                                    if yes_button:
+                                        break
+                                except:
+                                    continue
+                    except Exception as e:
+                        logger.warning(f"⚠️ Erro ao procurar pop-up de mudança de odds: {str(e)}")
+                
                 if yes_button:
                     # Scroll para o elemento se necessário
                     self.driver.execute_script("arguments[0].scrollIntoView(true);", yes_button)
-                    time.sleep(1)
+                    time.sleep(0.5)  # Otimizado agressivamente
                     
                     try:
                         yes_button.click()
@@ -711,7 +916,47 @@ class ValSportsScraper:
                         self.driver.execute_script("arguments[0].click();", yes_button)
                         logger.info("✅ Clique via JavaScript no 'Sim' realizado")
                     
-                    time.sleep(8)
+                    time.sleep(1)  # Aguardar para possível segundo pop-up (otimizado agressivamente)
+                    
+                    # Verificar se apareceu pop-up de mudança de odds
+                    logger.info("🔍 Verificando se apareceu pop-up de mudança de odds...")
+                    try:
+                        # Seletores específicos para pop-up de mudança de odds
+                        odds_popup_selectors = [
+                            "/html/body/div[3]/div/div[2]/div[3]/a[2]",  # XPath específico
+                            "a.v-dialog-btn:nth-child(2)",  # CSS específico
+                            "//div[contains(text(), 'Mudança de prêmio')]//following-sibling::*//a[contains(text(), 'SIM')]",
+                            "//div[contains(text(), 'Deseja continuar?')]//following-sibling::*//a[contains(text(), 'SIM')]"
+                        ]
+                        
+                        odds_yes_button = None
+                        for selector in odds_popup_selectors:
+                            try:
+                                if selector.startswith("/"):
+                                    odds_yes_button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+                                else:
+                                    odds_yes_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+                                logger.info(f"✅ Pop-up de mudança de odds encontrado: {selector}")
+                                break
+                            except:
+                                continue
+                        
+                        if odds_yes_button:
+                            logger.info("🖱️ Clicando no 'SIM' do pop-up de mudança de odds...")
+                            try:
+                                odds_yes_button.click()
+                                logger.info("✅ Clique no 'SIM' do pop-up de mudança de odds realizado")
+                            except Exception as click_error:
+                                logger.warning(f"⚠️ Clique normal falhou, tentando JavaScript: {click_error}")
+                                self.driver.execute_script("arguments[0].click();", odds_yes_button)
+                                logger.info("✅ Clique via JavaScript no 'SIM' do pop-up realizado")
+                            time.sleep(1)  # Otimizado agressivamente
+                        else:
+                            logger.info("ℹ️ Nenhum pop-up de mudança de odds encontrado")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Erro ao verificar pop-up de mudança de odds: {str(e)}")
+                    
+                    time.sleep(1)  # Aguardar final (otimizado agressivamente)
                     
                     # Verificar se houve confirmação (procurar por mensagem de sucesso ou mudança na URL)
                     current_url = self.driver.current_url
@@ -722,10 +967,26 @@ class ValSportsScraper:
                         logger.info("✅ Redirecionado para página de apostas - confirmação bem-sucedida")
                         return True
                     
-                    # Se foi redirecionado para home, também é sucesso (pode ter ido para /bets depois)
+                    # Se foi redirecionado para home, verificar se realmente foi confirmado
                     if current_url == f"{self.base_url}/" or current_url == self.base_url:
-                        logger.info("✅ Redirecionado para home - confirmação bem-sucedida")
-                        return True
+                        logger.info("🔍 Verificando se a aposta foi realmente confirmada...")
+                        
+                        # Navegar para a página de apostas para verificar
+                        self.driver.get(f"{self.base_url}/bets")
+                        time.sleep(1)  # Otimizado agressivamente
+                        
+                        # Verificar se há apostas abertas
+                        try:
+                            # Procurar por mensagem "Nenhuma aposta encontrada"
+                            no_bets_element = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Nenhuma aposta encontrada')]")
+                            if no_bets_element:
+                                logger.error("❌ Nenhuma aposta encontrada - confirmação falhou")
+                                self.driver.save_screenshot(f"no_bets_found_{bet_code}.png")
+                                return False
+                        except:
+                            # Se não encontrou a mensagem, pode ter apostas
+                            logger.info("✅ Apostas encontradas - confirmação bem-sucedida")
+                            return True
                     
                     # Se ainda está na página do bilhete, confirmação falhou
                     if f"/prebet/{bet_code}" in current_url:
