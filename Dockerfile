@@ -37,4 +37,4 @@ COPY . .
 EXPOSE 5000
 
 # Comando para executar a aplicação (mais simples)
-CMD ["python", "api_capture_service_final.py"]
+CMD ["python", "app.py"]
