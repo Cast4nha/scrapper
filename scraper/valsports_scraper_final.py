@@ -761,7 +761,7 @@ class ValSportsScraper:
         return games
     
     def confirm_bet(self, bet_code):
-        """Confirma a aposta no sistema"""
+        """Confirma a aposta no sistema - VERSÃO OTIMIZADA"""
         try:
             if not self.is_logged_in:
                 logger.error("❌ Usuário não está logado")
@@ -772,20 +772,18 @@ class ValSportsScraper:
             # Navegar para a página principal primeiro
             logger.info(f"🌐 Navegando para página principal: {self.base_url}")
             self.driver.get(self.base_url)
-            time.sleep(2)
+            time.sleep(1)  # Reduzido de 2 para 1 segundo
             
-            # Aguardar carregamento
-            wait = WebDriverWait(self.driver, 20)
+            # Aguardar carregamento com timeout reduzido
+            wait = WebDriverWait(self.driver, 10)  # Reduzido de 20 para 10 segundos
             
-            # Clicar na aba PRÉ-APOSTA
+            # Clicar na aba PRÉ-APOSTA - OTIMIZADO
             logger.info("🔍 Procurando aba PRÉ-APOSTA...")
+            # Usar apenas os seletores mais comuns primeiro
             prebet_tab_selectors = [
+                "//a[contains(text(), 'Pré-aposta')]",  # Mais comum
                 "//a[contains(text(), 'PRÉ-APOSTA')]",
-                "//a[contains(text(), 'Pré-aposta')]",
-                "//a[contains(text(), 'Pré Aposta')]",
-                "//a[contains(@href, '/prebet')]",
-                "//div[contains(text(), 'PRÉ-APOSTA')]//parent::a",
-                "//span[contains(text(), 'PRÉ-APOSTA')]//parent::a"
+                "//a[contains(@href, '/prebet')]"
             ]
             
             prebet_tab = None
@@ -802,7 +800,7 @@ class ValSportsScraper:
                 self.driver.save_screenshot(f"prebet_tab_not_found_{bet_code}.png")
                 return False
             
-            # Clicar na aba PRÉ-APOSTA (abre o modal)
+            # Clicar na aba PRÉ-APOSTA (abre o modal) - OTIMIZADO
             logger.info("🖱️ Clicando na aba PRÉ-APOSTA...")
             try:
                 prebet_tab.click()
@@ -812,40 +810,42 @@ class ValSportsScraper:
                 self.driver.execute_script("arguments[0].click();", prebet_tab)
                 logger.info("✅ Clique via JavaScript na aba PRÉ-APOSTA realizado")
             
-            time.sleep(2)
+            time.sleep(1)  # Reduzido de 2 para 1 segundo
             
-            # Aguardar o modal aparecer completamente
+            # Aguardar o modal aparecer - OTIMIZADO
             logger.info("🔍 Aguardando modal de pré-aposta aparecer...")
             try:
-                # Aguardar o modal estar visível
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".v-dialog.active")))
+                # Aguardar o modal estar visível com timeout reduzido
+                wait_modal = WebDriverWait(self.driver, 5)  # Timeout reduzido
+                wait_modal.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".v-dialog.active")))
                 logger.info("✅ Modal de pré-aposta detectado")
-                time.sleep(1)  # Aguardar animação
+                time.sleep(0.5)  # Reduzido de 1 para 0.5 segundos
             except:
                 logger.warning("⚠️ Modal não detectado, continuando...")
             
-            # Procurar especificamente o campo v-dialog-input
+            # Procurar especificamente o campo v-dialog-input - OTIMIZADO
             logger.info("🔍 Procurando campo v-dialog-input...")
             bet_code_input = None
             try:
-                bet_code_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".v-dialog-input")))
+                # Usar timeout reduzido para o campo
+                wait_input = WebDriverWait(self.driver, 5)
+                bet_code_input = wait_input.until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".v-dialog-input")))
                 logger.info("✅ Campo v-dialog-input encontrado")
             except:
                 logger.warning("⚠️ Campo v-dialog-input não encontrado, tentando alternativas...")
-                # Tentar seletores alternativos
+                # Tentar apenas os seletores mais comuns
                 alternative_selectors = [
                     "input.v-dialog-input",
                     "//input[@class='v-dialog-input']",
-                    "//div[contains(@class, 'v-dialog')]//input[@type='text']",
-                    "//form//input"
+                    "//div[contains(@class, 'v-dialog')]//input[@type='text']"
                 ]
                 
                 for selector in alternative_selectors:
                     try:
                         if selector.startswith("//"):
-                            bet_code_input = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+                            bet_code_input = wait_input.until(EC.element_to_be_clickable((By.XPATH, selector)))
                         else:
-                            bet_code_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+                            bet_code_input = wait_input.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
                         logger.info(f"✅ Campo encontrado com seletor alternativo: {selector}")
                         break
                     except:
@@ -856,39 +856,28 @@ class ValSportsScraper:
                 self.driver.save_screenshot(f"modal_input_not_found_{bet_code}.png")
                 return False
             
-            # Clicar no campo primeiro para garantir que está focado
-            logger.info("🖱️ Clicando no campo de input...")
-            try:
-                bet_code_input.click()
-                time.sleep(0.5)
-            except:
-                logger.warning("⚠️ Não foi possível clicar no campo, continuando...")
-            
-            # Inserir código do bilhete no modal
+            # Inserir código do bilhete no modal - OTIMIZADO
             logger.info(f"📝 Inserindo código do bilhete no modal: {bet_code}")
             bet_code_input.clear()
             bet_code_input.send_keys(bet_code)
-            time.sleep(1)
+            time.sleep(0.5)  # Reduzido de 1 para 0.5 segundos
             
-            # Procurar botão "BUSCAR" no modal
+            # Procurar botão "BUSCAR" no modal - OTIMIZADO
             logger.info("🔍 Procurando botão BUSCAR no modal...")
+            # Usar apenas os seletores mais comuns
             buscar_button_selectors = [
-                ".v-dialog-btn.success",
+                ".v-dialog-btn.success",  # Mais comum
                 "a.v-dialog-btn.success",
-                "//a[contains(@class, 'v-dialog-btn') and contains(@class, 'success')]",
-                "//a[contains(text(), 'BUSCAR')]",
-                "//a[contains(text(), 'Buscar')]",
-                "//button[contains(text(), 'BUSCAR')]",
-                "//button[contains(text(), 'Buscar')]"
+                "//a[contains(text(), 'Buscar')]"
             ]
             
             buscar_button = None
             for selector in buscar_button_selectors:
                 try:
                     if selector.startswith("//"):
-                        buscar_button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+                        buscar_button = wait_input.until(EC.element_to_be_clickable((By.XPATH, selector)))
                     else:
-                        buscar_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+                        buscar_button = wait_input.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
                     logger.info(f"✅ Botão BUSCAR encontrado com seletor: {selector}")
                     break
                 except:
@@ -899,7 +888,7 @@ class ValSportsScraper:
                 self.driver.save_screenshot(f"buscar_button_not_found_{bet_code}.png")
                 return False
             
-            # Clicar no botão BUSCAR
+            # Clicar no botão BUSCAR - OTIMIZADO
             logger.info("🖱️ Clicando no botão BUSCAR...")
             try:
                 buscar_button.click()
@@ -909,8 +898,8 @@ class ValSportsScraper:
                 self.driver.execute_script("arguments[0].click();", buscar_button)
                 logger.info("✅ Clique via JavaScript no botão BUSCAR realizado")
             
-            # Aguardar o modal fechar e o bilhete carregar
-            time.sleep(3)
+            # Aguardar o modal fechar e o bilhete carregar - OTIMIZADO
+            time.sleep(2)  # Reduzido de 3 para 2 segundos
             
             # Verificar se a página carregou corretamente
             try:
